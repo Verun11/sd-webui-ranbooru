@@ -1,4 +1,6 @@
 .vscode/
 deploy.ps1
 __pycache__
-user
+user/*
+!user/wildcards/
+!user/wildcards/.gitkeep

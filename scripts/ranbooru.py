@@ -2,6 +2,7 @@ from io import BytesIO
 import html
 import random
 import requests
+import re
 import modules.scripts as scripts
 import gradio as gr
 import os
@@ -21,9 +22,11 @@ user_data_dir = os.path.join(extension_root, 'user')
 user_search_dir = os.path.join(user_data_dir, 'search')
 user_remove_dir = os.path.join(user_data_dir, 'remove')
 user_forbidden_prompt_dir = os.path.join(user_data_dir, 'forbidden_prompt')
+user_wildcards_dir = os.path.join(user_data_dir, 'wildcards') # Added wildcard directory
 os.makedirs(user_search_dir, exist_ok=True)
 os.makedirs(user_remove_dir, exist_ok=True)
 os.makedirs(user_forbidden_prompt_dir, exist_ok=True)
+os.makedirs(user_wildcards_dir, exist_ok=True) # Ensure wildcard directory is created
 
 if not os.path.isfile(os.path.join(user_search_dir, 'tags_search.txt')):
     with open(os.path.join(user_search_dir, 'tags_search.txt'), 'w'):
@@ -557,6 +560,63 @@ def limit_prompt_tags(prompt, limit_tags, mode):
         clean_prompt = clean_prompt[:limit_tags]
     return ','.join(clean_prompt)
 
+    def process_wildcards(self, current_tags_string):
+        import re
+        import os # ensure os is imported
+        import random # ensure random is imported
+
+        # Assuming 'scripts.basedir()' needs to be resolved to the actual extension root.
+        # If 'self.extension_root' or a similar class/global variable exists, prefer that.
+        # For the purpose of this subtask, we'll use 'scripts.basedir()' as it was in the original context.
+        # user_wildcards_dir should ideally be a class or instance variable, or passed.
+        # Reconstructing path similar to how it's done for user_search_dir etc.
+        # extension_root = scripts.basedir() # This would be outside the method
+        # user_data_dir = os.path.join(extension_root, 'user') # Outside
+        # base_wildcard_path = os.path.join(user_data_dir, 'wildcards') # Defined once, ideally in __init__ or globally
+
+        # To ensure this method has access to base_wildcard_path, let's use the global definition made earlier:
+        # global user_wildcards_dir (if it was made global)
+        # Or, more cleanly, it should be self.user_wildcards_dir if initialized in __init__
+        # For this subtask, we'll rely on the 'user_wildcards_dir' variable that was added globally in a previous step.
+        # Ensure it's accessible. If not, the subtask might need to define it locally based on 'scripts.basedir()'.
+        # Let's assume 'user_wildcards_dir' (the global one: os.path.join(user_data_dir, 'wildcards')) is in scope.
+
+
+        processed_tags = current_tags_string
+
+        # Loop as long as there are wildcards to process
+        while True:
+            match = re.search(r'__([a-zA-Z0-9_]+)__', processed_tags)
+            if not match:
+                break # No more wildcards found
+
+            keyword = match.group(1) # Get the keyword, e.g., "artist"
+            wildcard_to_replace = match.group(0) # Get the full pattern, e.g., "__artist__"
+
+            replacement_tag = "" # Default to empty string
+
+            # Use the globally defined user_wildcards_dir
+            # Ensure this variable is defined in the scope where this script runs.
+            # It was defined as: user_wildcards_dir = os.path.join(user_data_dir, 'wildcards')
+            file_path = os.path.join(user_wildcards_dir, f"{keyword}.txt")
+
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        possible_tags = [line.strip() for line in f if line.strip()]
+                    if possible_tags:
+                        replacement_tag = random.choice(possible_tags)
+                except Exception as e:
+                    # It's good practice to log or print errors
+                    print(f"[Ranbooru] Error reading wildcard file {file_path}: {e}")
+
+            # Replace only the first occurrence of the found wildcard_to_replace
+            processed_tags = processed_tags.replace(wildcard_to_replace, replacement_tag, 1)
+
+        # After all replacements, clean up any resultant empty elements or multiple commas.
+        final_tags_list = [tag.strip() for tag in processed_tags.split(',') if tag.strip()]
+        return ','.join(final_tags_list)
+
 class Script(scripts.Script):
     previous_loras = ''
     last_img = []
@@ -620,7 +680,7 @@ class Script(scripts.Script):
             gr.Markdown("""## Post""")
             post_id = gr.Textbox(lines=1, label="Post ID")
             gr.Markdown("""## Tags""")
-            tags = gr.Textbox(lines=1, label="Tags to Search (Pre)")
+            tags = gr.Textbox(lines=1, label="Tags to Search (Pre)", info="Use __wildcard__ to pick a random tag from user/wildcards/wildcard.txt")
             remove_tags = gr.Textbox(lines=1, label="Tags to Remove (Post)")
             mature_rating = gr.Radio(list(RATINGS['gelbooru']), label="Mature Rating", value="All")
             remove_bad_tags = gr.Checkbox(label="Remove bad tags", value=True)
@@ -775,6 +835,7 @@ class Script(scripts.Script):
                 'e621': e621(),
             }
             self.original_prompt = p.prompt
+            tags = self.process_wildcards(tags) # Process wildcards for tags
             # Check if compatible
             check_exception(booru, {'tags': tags, 'post_id': post_id})
 
