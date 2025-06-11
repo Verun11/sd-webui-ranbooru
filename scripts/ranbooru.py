@@ -22,11 +22,11 @@ user_data_dir = os.path.join(extension_root, 'user')
 user_search_dir = os.path.join(user_data_dir, 'search')
 user_remove_dir = os.path.join(user_data_dir, 'remove')
 user_forbidden_prompt_dir = os.path.join(user_data_dir, 'forbidden_prompt')
-user_wildcards_dir = os.path.join(user_data_dir, 'wildcards') # Added wildcard directory
+user_wildcards_dir = os.path.join(user_data_dir, 'wildcards')
 os.makedirs(user_search_dir, exist_ok=True)
 os.makedirs(user_remove_dir, exist_ok=True)
 os.makedirs(user_forbidden_prompt_dir, exist_ok=True)
-os.makedirs(user_wildcards_dir, exist_ok=True) # Ensure wildcard directory is created
+os.makedirs(user_wildcards_dir, exist_ok=True)
 
 if not os.path.isfile(os.path.join(user_search_dir, 'tags_search.txt')):
     with open(os.path.join(user_search_dir, 'tags_search.txt'), 'w'):
@@ -44,584 +44,354 @@ COLORED_BG = ['black_background', 'aqua_background', 'white_background', 'colore
 ADD_BG = ['outdoors', 'indoors']
 BW_BG = ['monochrome', 'greyscale', 'grayscale']
 POST_AMOUNT = 100
-COUNT = 100 #Number of images the search returned. Booru classes below were modified to update this value with the latest search result count.
+COUNT = 100
 DEBUG = False
 RATING_TYPES = {
-    "none": {
-        "All": "All"
-    },
-    "full": {
-        "All": "All",
-        "Safe": "safe",
-        "Questionable": "questionable",
-        "Explicit": "explicit"
-    },
-    "single": {
-        "All": "All",
-        "Safe": "g",
-        "Sensitive": "s",
-        "Questionable": "q",
-        "Explicit": "e"
-    }
+    "none": {"All": "All"},
+    "full": {"All": "All", "Safe": "safe", "Questionable": "questionable", "Explicit": "explicit"},
+    "single": {"All": "All", "Safe": "g", "Sensitive": "s", "Questionable": "q", "Explicit": "e"}
 }
 RATINGS = {
-    "e621": RATING_TYPES['full'],
-    "danbooru": RATING_TYPES['single'],
-    "aibooru": RATING_TYPES['full'],
-    "yande.re": RATING_TYPES['full'],
-    "konachan": RATING_TYPES['full'],
-    "safebooru": RATING_TYPES['none'],
-    "rule34": RATING_TYPES['full'],
-    "xbooru": RATING_TYPES['full'],
-    "gelbooru": RATING_TYPES['single']
+    "e621": RATING_TYPES['full'], "danbooru": RATING_TYPES['single'], "aibooru": RATING_TYPES['full'],
+    "yande.re": RATING_TYPES['full'], "konachan": RATING_TYPES['full'], "safebooru": RATING_TYPES['none'],
+    "rule34": RATING_TYPES['full'], "xbooru": RATING_TYPES['full'], "gelbooru": RATING_TYPES['single']
 }
 
-
 def get_available_ratings(booru):
-    mature_ratings = gr.Radio.update(choices=RATINGS[booru].keys(), value="All")
-    return mature_ratings
-
+    return gr.Radio.update(choices=RATINGS[booru].keys(), value="All")
 
 def show_fringe_benefits(booru):
-    if booru == 'gelbooru':
-        return gr.Checkbox.update(visible=True)
-    else:
-        return gr.Checkbox.update(visible=False)
-
+    return gr.Checkbox.update(visible=(booru == 'gelbooru'))
 
 def check_exception(booru, parameters):
     post_id = parameters.get('post_id')
     tags = parameters.get('tags')
-    if booru == 'konachan' and post_id:
-        raise Exception("Konachan does not support post IDs")
-    if booru == 'yande.re' and post_id:
-        raise Exception("Yande.re does not support post IDs")
-    if booru == 'e621' and post_id:
-        raise Exception("e621 does not support post IDs")
-    if booru == 'danbooru' and tags and len(tags.split(',')) > 1: # Added tags check
+    if booru == 'konachan' and post_id: raise Exception("Konachan does not support post IDs")
+    if booru == 'yande.re' and post_id: raise Exception("Yande.re does not support post IDs")
+    if booru == 'e621' and post_id: raise Exception("e621 does not support post IDs")
+    if booru == 'danbooru' and tags and len(tags.split(',')) > 1:
         raise Exception("Danbooru does not support multiple tags. You can have only one tag.")
 
-
 class Booru():
-
     def __init__(self, booru, booru_url):
         self.booru = booru
         self.booru_url = booru_url
         self.headers = {'user-agent': 'my-app/0.0.1'}
-
-    def get_data(self, add_tags, max_pages=10, id=''):
-        pass
-
-    def get_post(self, add_tags, max_pages=10, id=''):
-        pass
-
+    def get_data(self, add_tags, max_pages=10, id=''): pass
+    def get_post(self, add_tags, max_pages=10, id=''): pass
 
 class Gelbooru(Booru):
-
     def __init__(self, fringe_benefits):
         super().__init__('gelbooru', f'https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
         self.fringeBenefits = fringe_benefits
-
     def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
-            if self.fringeBenefits:
-                res = requests.get(self.booru_url, cookies={'fringeBenefits': 'yup'})
-            else:
-                res = requests.get(self.booru_url)
-            data = res.json()
-            COUNT = data['@attributes']['count']
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url, cookies={'fringeBenefits': 'yup'} if self.fringeBenefits else None)
+            data = res.json(); COUNT = data.get('@attributes', {}).get('count', 0)
             if COUNT <= max_pages*POST_AMOUNT:
-                max_pages = COUNT // POST_AMOUNT+1
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
+                max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
-            else:
-                print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
+            else: print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
             break
         return data
-
-    def get_post(self, add_tags, max_pages=10, id=''):
-        return self.get_data(add_tags, max_pages, "&id=" + id)
-
+    def get_post(self, add_tags, max_pages=10, id=''): return self.get_data(add_tags, max_pages, "&id=" + id)
 
 class XBooru(Booru):
-
-    def __init__(self):
-        super().__init__('xbooru', f'https://xbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
-
+    def __init__(self): super().__init__('xbooru', f'https://xbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
-            print(self.booru_url)
-            res = requests.get(self.booru_url)
-            data = res.json()
-            COUNT = 0
-            for post in data:
-                post['file_url'] = f"https://xbooru.com/images/{post['directory']}/{post['image']}"
-                COUNT += 1
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://xbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url); data = res.json(); COUNT = 0
+            for post in data: post['file_url'] = f"https://xbooru.com/images/{post['directory']}/{post['image']}"; COUNT += 1
             if COUNT <= max_pages*POST_AMOUNT:
-                max_pages = COUNT // POST_AMOUNT+1
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
+                max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
-            else:
-                print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
+            else: print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
             break
         return {'post': data}
-
-    def get_post(self, add_tags, max_pages=10, id=''):
-        return self.get_data(add_tags, max_pages, "&id=" + id)
-
+    def get_post(self, add_tags, max_pages=10, id=''): return self.get_data(add_tags, max_pages, "&id=" + id)
 
 class Rule34(Booru):
-
-    def __init__(self):
-        super().__init__('rule34', f'https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
-
+    def __init__(self): super().__init__('rule34', f'https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url)
-            data = res.json()
-            COUNT = len(data)
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url); data = res.json(); COUNT = len(data) if isinstance(data, list) else 0
             if COUNT == 0:
-                max_pages = 2
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
+                max_pages = 2 # Default if no results
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
-            else:
-                print(f"Found enough results")
-            break
+            else: print(f"Found enough results"); break
         return {'post': data}
-
-    def get_post(self, add_tags, max_pages=10, id=''):
-        return self.get_data(add_tags, max_pages, "&id=" + id)
-
+    def get_post(self, add_tags, max_pages=10, id=''): return self.get_data(add_tags, max_pages, "&id=" + id)
 
 class Safebooru(Booru):
-
-    def __init__(self):
-        super().__init__('safebooru', f'https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
-
+    def __init__(self): super().__init__('safebooru', f'https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url)
-            data = res.json()
-            COUNT = 0
-            for post in data:
-                post['file_url'] = f"https://safebooru.org/images/{post['directory']}/{post['image']}"
-                COUNT += 1
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url); data = res.json(); COUNT = 0
+            if isinstance(data, list): # Ensure data is a list before iterating
+                for post in data: post['file_url'] = f"https://safebooru.org/images/{post['directory']}/{post['image']}"; COUNT += 1
             if COUNT <= max_pages*POST_AMOUNT:
-                max_pages = COUNT // POST_AMOUNT+1
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
+                max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
-            else:
-                print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
+            else: print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
             break
         return {'post': data}
-
-    def get_post(self, add_tags, max_pages=10, id=''):
-        return self.get_data(add_tags, max_pages, "&id=" + id)
-
+    def get_post(self, add_tags, max_pages=10, id=''): return self.get_data(add_tags, max_pages, "&id=" + id)
 
 class Konachan(Booru):
-
-    def __init__(self):
-        super().__init__('konachan', f'https://konachan.com/post.json?limit={POST_AMOUNT}')
-
+    def __init__(self): super().__init__('konachan', f'https://konachan.com/post.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url)
-            data = res.json()
-            COUNT = len(data)
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://konachan.com/post.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url); data = res.json(); COUNT = len(data) if isinstance(data, list) else 0
             if COUNT == 0:
                 max_pages = 2
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
-            else:
-                print(f"Found enough results")
-            break
+            else: print(f"Found enough results"); break
         return {'post': data}
-
-    def get_post(self, add_tags, max_pages=10, id=''):
-        raise Exception("Konachan does not support post IDs")
-
+    def get_post(self, add_tags, max_pages=10, id=''): raise Exception("Konachan does not support post IDs")
 
 class Yandere(Booru):
-
-    def __init__(self):
-        super().__init__('yande.re', f'https://yande.re/post.json?limit={POST_AMOUNT}')
-
+    def __init__(self): super().__init__('yande.re', f'https://yande.re/post.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url)
-            data = res.json()
-            COUNT = len(data)
-            if COUNT == 0: # Fixed duplicate COUNT = len(data)
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://yande.re/post.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url); data = res.json(); COUNT = len(data) if isinstance(data, list) else 0
+            if COUNT == 0:
                 max_pages = 2
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
-            else:
-                print(f"Found enough results")
-            break
+            else: print(f"Found enough results"); break
         return {'post': data}
-
-    def get_post(self, add_tags, max_pages=10, id=''):
-        raise Exception("Yande.re does not support post IDs")
-
+    def get_post(self, add_tags, max_pages=10, id=''): raise Exception("Yande.re does not support post IDs")
 
 class AIBooru(Booru):
-
-    def __init__(self):
-        super().__init__('AIBooru', f'https://aibooru.online/posts.json?limit={POST_AMOUNT}') # Corrected class name in super
-
+    def __init__(self): super().__init__('AIBooru', f'https://aibooru.online/posts.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url)
-            data = res.json()
-            for post in data:
-                post['tags'] = post['tag_string']
-            COUNT = len(data)
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://aibooru.online/posts.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url); data = res.json()
+            if isinstance(data, list): # Ensure data is a list
+                 for post in data: post['tags'] = post.get('tag_string', '') # Safe get
+                 COUNT = len(data)
+            else: COUNT = 0 # If data is not a list (e.g. error message)
             if COUNT == 0:
                 max_pages = 2
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
-            else:
-                print(f"Found enough results")
-            break
+            else: print(f"Found enough results"); break
         return {'post': data}
-
-    def get_post(self, add_tags, max_pages=10, id=''):
-        raise Exception("AIBooru does not support post IDs")
-
+    def get_post(self, add_tags, max_pages=10, id=''): raise Exception("AIBooru does not support post IDs")
 
 class Danbooru(Booru):
-
-    def __init__(self):
-        super().__init__('danbooru', f'https://danbooru.donmai.us/posts.json?limit={POST_AMOUNT}')
-
+    def __init__(self): super().__init__('danbooru', f'https://danbooru.donmai.us/posts.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url, headers=self.headers)
-            data = res.json()
-            for post in data:
-                post['tags'] = post['tag_string']
-            COUNT = len(data)
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://danbooru.donmai.us/posts.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url, headers=self.headers); data = res.json()
+            if isinstance(data, list): # Ensure data is a list
+                for post in data: post['tags'] = post.get('tag_string', '') # Safe get
+                COUNT = len(data)
+            else: COUNT = 0
             if COUNT == 0:
                 max_pages = 2
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
-            else:
-                print(f"Found enough results")
+            else: print(f"Found enough results"); break
+        return {'post': data}
+    def get_post(self, add_tags, max_pages=10, id=''):
+        self.booru_url = f"https://danbooru.donmai.us/posts/{id}.json"
+        res = requests.get(self.booru_url, headers=self.headers); data = res.json()
+        data['tags'] = data.get('tag_string', '') # Safe get
+        return {'post': [data]}
+
+class e621(Booru):
+    def __init__(self): super().__init__('e621', f'https://e621.net/posts.json?limit={POST_AMOUNT}')
+    def get_data(self, add_tags, max_pages=10, id=''):
+        global COUNT; loop_msg = True
+        for _ in range(2):
+            if id: add_tags = ''
+            self.booru_url = f"https://e621.net/posts.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
+            res = requests.get(self.booru_url, headers=self.headers); data_res = res.json()
+            data = data_res.get('posts', [])
+            COUNT = len(data) if isinstance(data, list) else 0
+            for post in data:
+                temp_tags = []; sublevels = ['general', 'artist', 'copyright', 'character', 'species']
+                for sublevel in sublevels: temp_tags.extend(post.get('tags', {}).get(sublevel, []))
+                post['tags'] = ' '.join(temp_tags)
+                post['score'] = post.get('score', {}).get('total', 0)
+            if COUNT <= max_pages*POST_AMOUNT:
+                max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1
+                if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
+                continue
+            else: print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
             break
         return {'post': data}
-
-    def get_post(self, add_tags, max_pages=10, id=''): # Unindented this method
-        self.booru_url = f"https://danbooru.donmai.us/posts/{id}.json"
-        res = requests.get(self.booru_url, headers=self.headers)
-        data = res.json()
-        data['tags'] = data['tag_string']
-        data = {'post': [data]} # Wrapped in 'post' list
-        return data
-
-
-class e621(Booru): # Corrected class name from 'e621' to 'e621' if it was 'danbooru' by mistake in original
-
-    def __init__(self):
-        super().__init__('e621', f'https://e621.net/posts.json?limit={POST_AMOUNT}') # Corrected super call
-
-    def get_data(self, add_tags, max_pages=10, id=''):
-        global COUNT
-        loop_msg = True
-        for loop in range(2):
-            if id:
-                add_tags = ''
-            self.booru_url = f"{self.booru_url}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url, headers=self.headers)
-            data_res = res.json() # Store result
-            data = data_res.get('posts', []) # Safely get 'posts'
-            COUNT = len(data)
-            for post in data: # Iterate over 'data' which is list of posts
-                temp_tags = []
-                sublevels = ['general', 'artist', 'copyright', 'character', 'species']
-                for sublevel in sublevels:
-                    temp_tags.extend(post.get('tags', {}).get(sublevel, [])) # Safe access
-                post['tags'] = ' '.join(temp_tags)
-                post['score'] = post.get('score', {}).get('total', 0) # Safe access
-            if COUNT <= max_pages*POST_AMOUNT: # Logic seems okay
-                max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1 # Avoid division by zero if COUNT is 0
-                while loop_msg:
-                    print(f" Processing {COUNT} results.")
-                    loop_msg = False
-                continue
-            else:
-                print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
-            break
-        return {'post': data} # Return in expected format
-
-    def get_post(self, add_tags, max_pages=10, id=''): # Unindented
-        # This method was likely meant to fetch a single post by ID for e621
-        # The original was "self.get_data(add_tags, max_pages, "&id=" + id)" which might not be correct for e621's single post endpoint
-        # Assuming a similar structure to Danbooru.get_post for fetching a single post
+    def get_post(self, add_tags, max_pages=10, id=''):
         self.booru_url = f"https://e621.net/posts/{id}.json"
-        res = requests.get(self.booru_url, headers=self.headers)
-        data = res.json().get('post', {}) # Safely get 'post'
-        if not data: # If post is empty or not found
-             return {'post': []} # Return empty list in expected structure
-        temp_tags = []
-        sublevels = ['general', 'artist', 'copyright', 'character', 'species']
-        for sublevel in sublevels:
-            temp_tags.extend(data.get('tags', {}).get(sublevel, []))
+        res = requests.get(self.booru_url, headers=self.headers); data_res = res.json()
+        data = data_res.get('post', {})
+        if not data: return {'post': []}
+        temp_tags = []; sublevels = ['general', 'artist', 'copyright', 'character', 'species']
+        for sublevel in sublevels: temp_tags.extend(data.get('tags', {}).get(sublevel, []))
         data['tags'] = ' '.join(temp_tags)
         data['score'] = data.get('score', {}).get('total', 0)
-        return {'post': [data]} # Wrap in list
-
+        return {'post': [data]}
 
 def generate_chaos(pos_tags, neg_tags, chaos_amount):
     chaos_list = [tag for tag in pos_tags.split(',') + neg_tags.split(',') if tag.strip() != '']
-    chaos_list = list(set(chaos_list))
-    random.shuffle(chaos_list)
+    chaos_list = list(set(chaos_list)); random.shuffle(chaos_list)
     len_list = round(len(chaos_list) * chaos_amount)
-    pos_list = chaos_list[len_list:]
-    pos_prompt = ','.join(pos_list)
-    neg_list = chaos_list[:len_list]
-    random.shuffle(neg_list)
-    neg_prompt = ','.join(neg_list)
+    pos_prompt = ','.join(chaos_list[len_list:])
+    neg_prompt = ','.join(chaos_list[:len_list])
     return pos_prompt, neg_prompt
-
 
 def resize_image(img, width, height, cropping=True):
     if cropping:
         x, y = img.size
         if x < y:
-            wpercent = (width / float(img.size[0]))
-            hsize = int((float(img.size[1]) * float(wpercent)))
+            wpercent = (width / float(x)); hsize = int(float(y) * float(wpercent))
             img_new = img.resize((width, hsize))
             if img_new.size[1] < height:
-                hpercent = (height / float(img.size[1]))
-                wsize = int((float(img.size[0]) * float(hpercent)))
+                hpercent = (height / float(y)); wsize = int(float(x) * float(hpercent))
                 img_new = img.resize((wsize, height))
         else:
-            ypercent = (height / float(img.size[1]))
-            wsize = int((float(img.size[0]) * float(ypercent)))
+            ypercent = (height / float(y)); wsize = int(float(x) * float(ypercent))
             img_new = img.resize((wsize, height))
             if img_new.size[0] < width:
-                xpercent = (width / float(img.size[0]))
-                hsize = int((float(img.size[1]) * float(xpercent)))
+                xpercent = (width / float(x)); hsize = int(float(y) * float(xpercent))
                 img_new = img.resize((width, hsize))
-        x, y = img_new.size
-        left = (x - width) / 2
-        top = (y - height) / 2
-        right = (x + width) / 2
-        bottom = (y + height) / 2
+        x_new, y_new = img_new.size # Renamed to avoid conflict
+        left = (x_new - width) / 2; top = (y_new - height) / 2
+        right = (x_new + width) / 2; bottom = (y_new + height) / 2
         img = img_new.crop((left, top, right, bottom))
-    else:
-        img = img.resize((width, height))
+    else: img = img.resize((width, height))
     return img
 
 def modify_prompt(prompt, tagged_prompt, type_deepbooru):
-    if type_deepbooru == 'Add Before':
-        return tagged_prompt + ',' + prompt
-    elif type_deepbooru == 'Add After':
-        return prompt + ',' + tagged_prompt
-    elif type_deepbooru == 'Replace':
-        return tagged_prompt
+    if type_deepbooru == 'Add Before': return tagged_prompt + ',' + prompt
+    elif type_deepbooru == 'Add After': return prompt + ',' + tagged_prompt
+    elif type_deepbooru == 'Replace': return tagged_prompt
     return prompt
 
 def remove_repeated_tags(prompt):
-    prompt = prompt.split(',')
-    new_prompt = []
-    for tag in prompt:
-        if tag not in new_prompt:
-            new_prompt.append(tag)
+    prompt_list = prompt.split(','); new_prompt = [] # Renamed variable
+    for tag in prompt_list: # Use new variable
+        if tag not in new_prompt: new_prompt.append(tag)
     return ','.join(new_prompt)
 
 def limit_prompt_tags(prompt, limit_tags, mode):
     clean_prompt = prompt.split(',')
-    if mode == 'Limit':
-        clean_prompt = clean_prompt[:int(len(clean_prompt) * limit_tags)]
-    elif mode == 'Max':
-        clean_prompt = clean_prompt[:limit_tags]
+    if mode == 'Limit': clean_prompt = clean_prompt[:int(len(clean_prompt) * limit_tags)]
+    elif mode == 'Max': clean_prompt = clean_prompt[:limit_tags]
     return ','.join(clean_prompt)
 
 class Script(scripts.Script):
-    previous_loras = ''
-    last_img = []
-    real_steps = 0
-    version = "1.2"
-    original_prompt = ''
+    previous_loras = ''; last_img = []; real_steps = 0; version = "1.2"; original_prompt = ''
 
     def process_wildcards(self, current_tags_string):
-        import re
-        import os
-        import random
-
+        import re; import os; import random
         processed_tags = current_tags_string
-
         while True:
             match = re.search(r'__([a-zA-Z0-9_]+)__', processed_tags)
-            if not match:
-                break
-
-            keyword = match.group(1)
-            wildcard_to_replace = match.group(0)
-
-            replacement_tag = ""
-
-            # Uses the global 'user_wildcards_dir' defined at the top of the script
+            if not match: break
+            keyword = match.group(1); wildcard_to_replace = match.group(0); replacement_tag = ""
             file_path = os.path.join(user_wildcards_dir, f"{keyword}.txt")
-
             if os.path.exists(file_path) and os.path.isfile(file_path):
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         possible_tags = [line.strip() for line in f if line.strip()]
-                    if possible_tags:
-                        replacement_tag = random.choice(possible_tags)
-                except Exception as e:
-                    print(f"[Ranbooru] Error reading wildcard file {file_path}: {e}")
-
+                    if possible_tags: replacement_tag = random.choice(possible_tags)
+                except Exception as e: print(f"[Ranbooru] Error reading wildcard file {file_path}: {e}")
             processed_tags = processed_tags.replace(wildcard_to_replace, replacement_tag, 1)
-
-        final_tags_list = [tag.strip() for tag in processed_tags.split(',') if tag.strip()]
-        return ','.join(final_tags_list)
+        return ','.join([tag.strip() for tag in processed_tags.split(',') if tag.strip()])
 
     def get_files(self, path):
-        files = []
-        for file in os.listdir(path):
-            if file.endswith('.txt'):
-                files.append(file)
+        files = [];
+        if os.path.exists(path): # Check if path exists
+            for file in os.listdir(path):
+                if file.endswith('.txt'): files.append(file)
         return files
 
-    def hide_object(self, obj, booru):
-        print(f'hide_object: {obj}, {booru.value}')
-        if booru.value == 'konachan' or booru.value == 'yande.re':
-            obj.interactive = False
-        else:
-            obj.interactive = True
+    def hide_object(self, obj, booru_val): # Renamed booru to booru_val
+        print(f'hide_object: {obj}, {booru_val}') # Use new name
+        if booru_val == 'konachan' or booru_val == 'yande.re': obj.interactive = False
+        else: obj.interactive = True
 
-    def title(self):
-        return "Ranbooru"
-
-    def show(self, is_img2img):
-        return scripts.AlwaysVisible
-
-    def refresh_ser(self):
-        return gr.update(choices=self.get_files(user_search_dir))
-    def refresh_rem(self):
-        return gr.update(choices=self.get_files(user_remove_dir))
+    def title(self): return "Ranbooru"
+    def show(self, is_img2img): return scripts.AlwaysVisible
+    def refresh_ser(self): return gr.update(choices=self.get_files(user_search_dir))
+    def refresh_rem(self): return gr.update(choices=self.get_files(user_remove_dir))
 
     def get_forbidden_files(self):
         os.makedirs(user_forbidden_prompt_dir, exist_ok=True)
         files = [f for f in os.listdir(user_forbidden_prompt_dir) if f.endswith('.txt')]
-        if not files and not os.path.exists(os.path.join(user_forbidden_prompt_dir, 'tags_forbidden.txt')):
-            with open(os.path.join(user_forbidden_prompt_dir, 'tags_forbidden.txt'), 'w') as f:
-                f.write("# Add tags here, one per line\n")
-                f.write("artist_name_example\n")
-                f.write("character_name_example\n")
-            files.append('tags_forbidden.txt')
-        elif 'tags_forbidden.txt' not in files and not os.path.exists(os.path.join(user_forbidden_prompt_dir, 'tags_forbidden.txt')):
-             with open(os.path.join(user_forbidden_prompt_dir, 'tags_forbidden.txt'), 'w') as f:
-                f.write("# Add tags here, one per line\n")
-                f.write("artist_name_example\n")
-                f.write("character_name_example\n")
-        if 'tags_forbidden.txt' not in files and os.path.exists(os.path.join(user_forbidden_prompt_dir, 'tags_forbidden.txt')):
-            files.append('tags_forbidden.txt')
-        return files if files else ['tags_forbidden.txt']
+        default_file = 'tags_forbidden.txt' # Renamed
+        default_file_path = os.path.join(user_forbidden_prompt_dir, default_file) # Renamed
+        if not files and not os.path.exists(default_file_path):
+            with open(default_file_path, 'w') as f: f.write("# Add tags here, one per line\nartist_name_example\ncharacter_name_example\n")
+            files.append(default_file)
+        elif default_file not in files and not os.path.exists(default_file_path): # Check if default not in files list
+             with open(default_file_path, 'w') as f: f.write("# Add tags here, one per line\nartist_name_example\ncharacter_name_example\n")
+        if default_file not in files and os.path.exists(default_file_path): files.append(default_file)
+        return files if files else [default_file]
 
-    def refresh_forbidden_files(self):
-        return gr.update(choices=self.get_forbidden_files())
+    def refresh_forbidden_files(self): return gr.update(choices=self.get_forbidden_files())
 
     def ui(self, is_img2img):
         with InputAccordion(False, label="Ranbooru", elem_id=self.elem_id("ra_enable")) as enabled:
-            booru = gr.Dropdown(
-                ["gelbooru", "rule34", "safebooru", "danbooru", "konachan", 'yande.re', 'aibooru', 'xbooru', 'e621'], label="Booru", value="gelbooru")
+            booru = gr.Dropdown(["gelbooru", "rule34", "safebooru", "danbooru", "konachan", 'yande.re', 'aibooru', 'xbooru', 'e621'], label="Booru", value="gelbooru")
             max_pages = gr.Slider(label="Max Pages", minimum=1, maximum=100, value=100, step=1)
-            gr.Markdown("""## Post""")
-            post_id = gr.Textbox(lines=1, label="Post ID")
+            gr.Markdown("""## Post"""); post_id = gr.Textbox(lines=1, label="Post ID")
             gr.Markdown("""## Tags""")
             tags = gr.Textbox(lines=1, label="Tags to Search (Pre)", info="Use __wildcard__ to pick a random tag from user/wildcards/wildcard.txt")
             remove_tags = gr.Textbox(lines=1, label="Tags to Remove (Post)")
-            mature_rating = gr.Radio(list(RATINGS['gelbooru']), label="Mature Rating", value="All")
-            remove_bad_tags = gr.Checkbox(label="Remove bad tags", value=True)
-            shuffle_tags = gr.Checkbox(label="Shuffle tags", value=True)
-            change_dash = gr.Checkbox(label='Convert "_" to spaces', value=False)
-            same_prompt = gr.Checkbox(label="Use same prompt for all images", value=False)
-            fringe_benefits = gr.Checkbox(label="Fringe Benefits", value=True)
+            mature_rating = gr.Radio(list(RATINGS.get('gelbooru', {}).keys()), label="Mature Rating", value="All") # Safe get
+            remove_bad_tags = gr.Checkbox(label="Remove bad tags", value=True); shuffle_tags = gr.Checkbox(label="Shuffle tags", value=True)
+            change_dash = gr.Checkbox(label='Convert "_" to spaces', value=False); same_prompt = gr.Checkbox(label="Use same prompt for all images", value=False)
+            fringe_benefits = gr.Checkbox(label="Fringe Benefits", value=True, visible=(booru.value == "gelbooru")) # Visibility based on initial value
             limit_tags = gr.Slider(value=1.0, label="Limit tags", minimum=0.05, maximum=1.0, step=0.05)
-            max_tags = gr.Slider(value=100, label="Max tags", minimum=1, maximum=100, step=1)
+            max_tags_slider = gr.Slider(value=100, label="Max tags", minimum=1, maximum=100, step=1) # Renamed variable
             change_background = gr.Radio(["Don't Change", "Add Background", "Remove Background", "Remove All"], label="Change Background", value="Don't Change")
             change_color = gr.Radio(["Don't Change", "Colored", "Limited Palette", "Monochrome"], label="Change Color", value="Don't Change")
             sorting_order = gr.Radio(["Random", "High Score", "Low Score"], label="Sorting Order", value="Random")
             disable_prompt_modification = gr.Checkbox(label="Disable Ranbooru prompt modification", value=False)
-
             booru.change(get_available_ratings, booru, mature_rating)
             booru.change(show_fringe_benefits, booru, fringe_benefits)
-
-            gr.Markdown("""\n---\n""")
-            gr.Markdown("### Post-Fetch Prompt Tag Filtering")
+            gr.Markdown("""\n---\n"""); gr.Markdown("### Post-Fetch Prompt Tag Filtering")
             forbidden_prompt_tags_text = gr.Textbox(lines=2, label="Forbidden Prompt Tags (Manual Input)", info="Comma-separated. Tags to remove from prompt AFTER image selection.")
             use_forbidden_prompt_txt = gr.Checkbox(label="Use Forbidden Prompt Tags from file", value=False)
             choose_forbidden_prompt_txt = gr.Dropdown(self.get_forbidden_files(), label="Choose Forbidden Prompt Tags .txt file", value="tags_forbidden.txt")
-            forbidden_refresh_btn = gr.Button("Refresh Forbidden Files")
-            gr.Markdown("""\n---\n""")
+            forbidden_refresh_btn = gr.Button("Refresh Forbidden Files"); gr.Markdown("""\n---\n""")
             with gr.Group():
                 with gr.Accordion("Img2Img", open=False):
-                    use_img2img = gr.Checkbox(label="Use img2img", value=False)
-                    use_ip = gr.Checkbox(label="Send to Controlnet", value=False)
+                    use_img2img = gr.Checkbox(label="Use img2img", value=False); use_ip = gr.Checkbox(label="Send to Controlnet", value=False)
                     denoising = gr.Slider(value=0.75, label="Denoising", minimum=0.05, maximum=1.0, step=0.05)
-                    use_last_img = gr.Checkbox(label="Use last image as img2img", value=False)
-                    crop_center = gr.Checkbox(label="Crop Center", value=False)
+                    use_last_img = gr.Checkbox(label="Use last image as img2img", value=False); crop_center = gr.Checkbox(label="Crop Center", value=False)
                     use_deepbooru = gr.Checkbox(label="Use Deepbooru", value=False)
                     type_deepbooru = gr.Radio(["Add Before", "Add After", "Replace"], label="Deepbooru Tags Position", value="Add Before")
             with gr.Group():
@@ -634,32 +404,22 @@ class Script(scripts.Script):
                     remove_refresh_btn = gr.Button("Refresh")
             with gr.Group():
                 with gr.Accordion("Extra", open=False):
-                    with gr.Box():
-                        mix_prompt = gr.Checkbox(label="Mix prompts", value=False)
-                        mix_amount = gr.Slider(value=2, label="Mix amount", minimum=2, maximum=10, step=1)
-                    with gr.Box():
-                        chaos_mode = gr.Radio(["None", "Chaos", "Less Chaos"], label="Chaos Mode", value="None")
-                        chaos_amount = gr.Slider(value=0.5, label="Chaos Amount %", minimum=0.1, maximum=1, step=0.05)
-                    with gr.Box():
-                        negative_mode = gr.Radio(["None", "Negative"], label="Negative Mode", value="None")
-                        use_same_seed = gr.Checkbox(label="Use same seed for all pictures", value=False)
-                    with gr.Box():
-                        use_cache = gr.Checkbox(label="Use cache", value=True)
-        with InputAccordion(False, label="LoRAnado", elem_id=self.elem_id("lo_enable")) as lora_enabled:
+                    with gr.Box(): mix_prompt = gr.Checkbox(label="Mix prompts", value=False); mix_amount = gr.Slider(value=2, label="Mix amount", minimum=2, maximum=10, step=1)
+                    with gr.Box(): chaos_mode = gr.Radio(["None", "Chaos", "Less Chaos"], label="Chaos Mode", value="None"); chaos_amount = gr.Slider(value=0.5, label="Chaos Amount %", minimum=0.1, maximum=1, step=0.05)
+                    with gr.Box(): negative_mode = gr.Radio(["None", "Negative"], label="Negative Mode", value="None"); use_same_seed = gr.Checkbox(label="Use same seed for all pictures", value=False)
+                    with gr.Box(): use_cache = gr.Checkbox(label="Use cache", value=True)
+        with InputAccordion(False, label="LoRAnado", elem_id=self.elem_id("lo_enable")) as lora_enabled_ui: # Renamed
             with gr.Box():
-                lora_lock_prev = gr.Checkbox(label="Lock previous LoRAs", value=False)
-                lora_folder = gr.Textbox(lines=1, label="LoRAs Subfolder")
+                lora_lock_prev = gr.Checkbox(label="Lock previous LoRAs", value=False); lora_folder = gr.Textbox(lines=1, label="LoRAs Subfolder")
                 lora_amount = gr.Slider(value=1, label="LoRAs Amount", minimum=1, maximum=10, step=1)
             with gr.Box():
                 lora_min = gr.Slider(value=-1.0, label="Min LoRAs Weight", minimum=-1.0, maximum=1, step=0.1)
                 lora_max = gr.Slider(value=1.0, label="Max LoRAs Weight", minimum=-1.0, maximum=1.0, step=0.1)
                 lora_custom_weights = gr.Textbox(lines=1, label="LoRAs Custom Weights")
-
         search_refresh_btn.click(fn=self.refresh_ser, inputs=[], outputs=[choose_search_txt])
         remove_refresh_btn.click(fn=self.refresh_rem, inputs=[], outputs=[choose_remove_txt])
         forbidden_refresh_btn.click(fn=self.refresh_forbidden_files, inputs=[], outputs=[choose_forbidden_prompt_txt])
-
-        return [enabled, tags, booru, remove_bad_tags, max_pages, change_dash, same_prompt, fringe_benefits, remove_tags, use_img2img, denoising, use_last_img, change_background, change_color, shuffle_tags, post_id, mix_prompt, mix_amount, chaos_mode, negative_mode, chaos_amount, limit_tags, max_tags, sorting_order, mature_rating, lora_folder, lora_amount, lora_min, lora_max, lora_enabled, lora_custom_weights, lora_lock_prev, use_ip, use_search_txt, use_remove_txt, choose_search_txt, choose_remove_txt, search_refresh_btn, remove_refresh_btn, forbidden_prompt_tags_text, use_forbidden_prompt_txt, choose_forbidden_prompt_txt, crop_center, use_deepbooru, type_deepbooru, use_same_seed, use_cache, disable_prompt_modification]
+        return [enabled, tags, booru, remove_bad_tags, max_pages, change_dash, same_prompt, fringe_benefits, remove_tags, use_img2img, denoising, use_last_img, change_background, change_color, shuffle_tags, post_id, mix_prompt, mix_amount, chaos_mode, negative_mode, chaos_amount, limit_tags, max_tags_slider, sorting_order, mature_rating, lora_folder, lora_amount, lora_min, lora_max, lora_enabled_ui, lora_custom_weights, lora_lock_prev, use_ip, use_search_txt, use_remove_txt, choose_search_txt, choose_remove_txt, search_refresh_btn, remove_refresh_btn, forbidden_prompt_tags_text, use_forbidden_prompt_txt, choose_forbidden_prompt_txt, crop_center, use_deepbooru, type_deepbooru, use_same_seed, use_cache, disable_prompt_modification]
 
     def check_orientation(self, img):
         x, y = img.size
@@ -670,343 +430,472 @@ class Script(scripts.Script):
     def loranado(self, lora_enabled, lora_folder, lora_amount, lora_min, lora_max, lora_custom_weights, p, lora_lock_prev):
         lora_prompt = ''
         if lora_enabled:
-            if lora_lock_prev:
-                lora_prompt = self.previous_loras
+            if lora_lock_prev: lora_prompt = self.previous_loras
             else:
-                loras = os.listdir(f'{lora_folder}')
+                loras_path = os.path.join(shared.cmd_opts.lora_dir, lora_folder) if hasattr(shared, 'cmd_opts') and hasattr(shared.cmd_opts, 'lora_dir') else f'models/Lora/{lora_folder}' # Use shared path if available
+                if not os.path.exists(loras_path): print(f"LoRA folder not found: {loras_path}"); return p
+                loras = os.listdir(loras_path)
                 loras = [lora.replace('.safetensors', '') for lora in loras if lora.endswith('.safetensors')]
-                for l in range(0, lora_amount):
+                if not loras: print(f"No LoRAs found in {loras_path}"); return p
+                for i in range(0, lora_amount): # Use i as loop var
                     lora_weight = 0
-                    if lora_custom_weights != '':
-                        lora_weight = float(lora_custom_weights.split(',')[l])
-                    while lora_weight == 0:
+                    custom_weights_list = lora_custom_weights.split(',')
+                    if lora_custom_weights != '' and i < len(custom_weights_list): # Check index
+                        try: lora_weight = float(custom_weights_list[i])
+                        except ValueError: lora_weight = round(random.uniform(lora_min, lora_max), 1) # Fallback
+                    else: # If no custom weight for this LoRA, or no custom weights at all
                         lora_weight = round(random.uniform(lora_min, lora_max), 1)
+                    while lora_weight == 0 and (lora_min != 0 or lora_max !=0) : lora_weight = round(random.uniform(lora_min, lora_max), 1) # Avoid infinite loop if min=max=0
                     lora_prompt += f'<lora:{random.choice(loras)}:{lora_weight}>'
                 self.previous_loras = lora_prompt
         if lora_prompt:
             if isinstance(p.prompt, list):
-                for num, pr in enumerate(p.prompt): p.prompt[num] = f'{lora_prompt} {pr}'
+                for num, pr_item in enumerate(p.prompt): p.prompt[num] = f'{lora_prompt} {pr_item}'
             else: p.prompt = f'{lora_prompt} {p.prompt}'
         return p
 
-    def before_process(self, p, enabled, tags, booru, remove_bad_tags, max_pages, change_dash, same_prompt, fringe_benefits, remove_tags, use_img2img, denoising, use_last_img, change_background, change_color, shuffle_tags, post_id, mix_prompt, mix_amount, chaos_mode, negative_mode, chaos_amount, limit_tags, max_tags, sorting_order, mature_rating, lora_folder, lora_amount, lora_min, lora_max, lora_enabled, lora_custom_weights, lora_lock_prev, use_ip, use_search_txt, use_remove_txt, choose_search_txt, choose_remove_txt, search_refresh_btn, remove_refresh_btn, forbidden_prompt_tags_text, use_forbidden_prompt_txt, choose_forbidden_prompt_txt, crop_center, use_deepbooru, type_deepbooru, use_same_seed, use_cache, disable_prompt_modification):
+    def before_process(self, p, enabled, tags, booru, remove_bad_tags, max_pages, change_dash, same_prompt, fringe_benefits, remove_tags, use_img2img, denoising, use_last_img, change_background, change_color, shuffle_tags, post_id, mix_prompt, mix_amount, chaos_mode, negative_mode, chaos_amount, limit_tags_percentage, max_tags_count, sorting_order, mature_rating, lora_folder, lora_amount, lora_min, lora_max, lora_enabled_ui, lora_custom_weights, lora_lock_prev, use_ip, use_search_txt, use_remove_txt, choose_search_txt, choose_remove_txt, search_refresh_btn_dummy, remove_refresh_btn_dummy, forbidden_prompt_tags_text, use_forbidden_prompt_txt, choose_forbidden_prompt_txt, crop_center, use_deepbooru, type_deepbooru, use_same_seed, use_cache, disable_prompt_modification): # Renamed some vars to avoid conflict
         if use_cache and not requests_cache.patcher.is_installed(): requests_cache.install_cache('ranbooru_cache', backend='sqlite', expire_after=3600)
         elif not use_cache and requests_cache.patcher.is_installed(): requests_cache.uninstall_cache()
-        if enabled:
-            if disable_prompt_modification:
-                if lora_enabled: p = self.loranado(lora_enabled, lora_folder, lora_amount, lora_min, lora_max, lora_custom_weights, p, lora_lock_prev)
-                return
 
-            booru_apis = {
-                'gelbooru': Gelbooru(fringe_benefits), 'rule34': Rule34(), 'safebooru': Safebooru(),
-                'danbooru': Danbooru(), 'konachan': Konachan(), 'yande.re': Yandere(),
-                'aibooru': AIBooru(), 'xbooru': XBooru(), 'e621': e621(),
-            }
-            self.original_prompt = p.prompt
-            tags = self.process_wildcards(tags)
-            check_exception(booru, {'tags': tags, 'post_id': post_id})
-            # ... (rest of before_process method as it was, assuming it's largely correct)
-            bad_tags = []
-            if remove_bad_tags: bad_tags = ['mixed-language_text', 'watermark', 'text', 'english_text', 'speech_bubble', 'signature', 'artist_name', 'censored', 'bar_censor', 'translation', 'twitter_username', "twitter_logo", 'patreon_username', 'commentary_request', 'tagme', 'commentary', 'character_name', 'mosaic_censoring', 'instagram_username', 'text_focus', 'english_commentary', 'comic', 'translation_request', 'fake_text', 'translated', 'paid_reward_available', 'thought_bubble', 'multiple_views', 'silent_comic', 'out-of-frame_censoring', 'symbol-only_commentary', '3koma', '2koma', 'character_watermark', 'spoken_question_mark', 'japanese_text', 'spanish_text', 'language_text', 'fanbox_username', 'commission', 'original', 'ai_generated', 'stable_diffusion', 'tagme_(artist)', 'text_bubble', 'qr_code', 'chinese_commentary', 'korean_text', 'partial_commentary', 'chinese_text', 'copyright_request', 'heart_censor', 'censored_nipples', 'page_number', 'scan', 'fake_magazine_cover', 'korean_commentary']
-            if ',' in remove_tags: bad_tags.extend(remove_tags.split(','))
-            else: bad_tags.append(remove_tags)
-            if use_remove_txt: bad_tags.extend(open(os.path.join(user_remove_dir, choose_remove_txt), 'r').read().split(','))
-            background_options = {'Add Background': ('detailed_background,' + random.choice(["outdoors", "indoors"]), COLORED_BG), 'Remove Background': ('plain_background,simple_background,' + random.choice(COLORED_BG), ADD_BG), 'Remove All': ('', COLORED_BG + ADD_BG)}
-            if change_background in background_options:
-                prompt_addition, tags_to_remove = background_options[change_background]
-                bad_tags.extend(tags_to_remove)
-                p.prompt = f'{p.prompt},{prompt_addition}' if p.prompt else prompt_addition
-            color_options = {'Colored': BW_BG, 'Limited Palette': '(limited_palette:1.3)', 'Monochrome': ','.join(BW_BG)}
-            if change_color in color_options:
-                color_option = color_options[change_color]
-                if isinstance(color_option, list): bad_tags.extend(color_option)
-                else: p.prompt = f'{p.prompt},{color_option}' if p.prompt else color_option
-            if use_search_txt:
-                search_tags_content = open(os.path.join(user_search_dir, choose_search_txt), 'r').read() # Renamed variable
-                search_tags_r = search_tags_content.replace(" ", "")
-                split_tags = search_tags_r.splitlines()
-                filtered_tags = [line for line in split_tags if line.strip()]
-                if filtered_tags:
-                    selected_tags = random.choice(filtered_tags) # Simplified random choice
-                    tags = f'{tags},{selected_tags}' if tags else selected_tags
-            add_tags_query = '&tags=-animated' # Renamed variable
-            if tags:
-                add_tags_query += f'+{tags.replace(",", "+")}'
-                if mature_rating != 'All': add_tags_query += f'+rating:{RATINGS[booru][mature_rating]}'
-            random_post = {'preview_url': ''}
-            prompts = []
-            global last_img # Ensure it's treated as global if modified here
-            last_img = []
-            preview_urls = []
-            api_url = booru_apis.get(booru, Gelbooru(fringe_benefits))
-            print(f'Using {booru}')
-            if post_id: data = api_url.get_post(add_tags_query, max_pages, post_id)
-            else: data = api_url.get_data(add_tags_query, max_pages)
-            print(api_url.booru_url)
-            if 'post' not in data and 'posts' in data : data['post'] = data['posts'] # Compatibility for e621 like structure
-            if 'post' not in data or not data['post']: data['post'] = [] # Ensure data['post'] is a list
-            for post_item in data['post']: post_item['score'] = post_item.get('score', 0) # Renamed post to post_item
-            if sorting_order == 'High Score': data['post'] = sorted(data['post'], key=lambda k: k.get('score', 0), reverse=True)
-            elif sorting_order == 'Low Score': data['post'] = sorted(data['post'], key=lambda k: k.get('score', 0))
-            random_numbers = [0 for _ in range(0, p.batch_size * p.n_iter)] if post_id else self.random_number(sorting_order, p.batch_size * p.n_iter)
-            for random_number in random_numbers:
-                current_random_post = data['post'][random_numbers[0] if same_prompt else random_number] # Renamed
-                if mix_prompt and not same_prompt : # mix_prompt only if not same_prompt
-                    temp_tags_mix = [] # Renamed
-                    max_tags_mix = 0 # Renamed
-                    for _ in range(0, mix_amount):
-                        random_mix_number = self.random_number(sorting_order, 1)[0] if not post_id else 0
-                        temp_tags_mix.extend(data['post'][random_mix_number]['tags'].split(' '))
-                        max_tags_mix = max(max_tags_mix, len(data['post'][random_mix_number]['tags'].split(' ')))
-                    temp_tags_mix = list(set(temp_tags_mix))
-                    current_random_post = data['post'][random_number] # Already defined, this line is redundant?
-                    max_tags_mix = min(max(len(temp_tags_mix), 20), max_tags_mix) # max_tags was used before, changed to max_tags_mix
-                    current_random_post['tags'] = ' '.join(random.sample(temp_tags_mix, max_tags_mix))
-                else: # if not mix_prompt or same_prompt
-                     current_random_post = data['post'][random_number if not same_prompt else random_numbers[0]]
-                clean_tags = current_random_post.get('tags', '').replace('(', r'\(').replace(')', r'\)') # Added .get
-                temp_tags_list = random.sample(clean_tags.split(' '), len(clean_tags.split(' '))) if shuffle_tags and clean_tags else clean_tags.split(' ') # Added clean_tags check
-                prompts.append(','.join(temp_tags_list))
-                preview_urls.append(current_random_post.get('file_url', 'https://pic.re/image'))
-            if use_img2img or use_deepbooru:
-                image_urls = [data['post'][random_numbers[0]]['file_url']] if use_last_img and data['post'] else preview_urls # Added data['post'] check
-                for img_url in image_urls: # Renamed img to img_url
-                    response = requests.get(img_url, headers=api_url.headers)
+        if not enabled: # If not enabled, only apply LoRAnado if its UI is enabled
+            if lora_enabled_ui: p = self.loranado(lora_enabled_ui, lora_folder, lora_amount, lora_min, lora_max, lora_custom_weights, p, lora_lock_prev)
+            return
+
+        if disable_prompt_modification:
+            if lora_enabled_ui: p = self.loranado(lora_enabled_ui, lora_folder, lora_amount, lora_min, lora_max, lora_custom_weights, p, lora_lock_prev)
+            return
+
+        booru_apis = {
+            'gelbooru': Gelbooru(fringe_benefits), 'rule34': Rule34(), 'safebooru': Safebooru(),
+            'danbooru': Danbooru(), 'konachan': Konachan(), 'yande.re': Yandere(),
+            'aibooru': AIBooru(), 'xbooru': XBooru(), 'e621': e621(),
+        }
+        self.original_prompt = p.prompt # Store the absolute original prompt from UI
+
+        # Process wildcards on initial tags from UI
+        tags_from_ui = self.process_wildcards(tags) # 'tags' is from UI input
+
+        check_exception(booru, {'tags': tags_from_ui, 'post_id': post_id})
+
+        current_processing_prompt = str(self.original_prompt) # Start with user's prompt for background/color etc.
+
+        # Background and Color modifications apply to the user's base prompt part
+        current_bad_tags = [] # Tags to remove specific to background/color changes
+        if remove_bad_tags: current_bad_tags.extend(['mixed-language_text', 'watermark', 'text', 'english_text', 'speech_bubble', 'signature', 'artist_name', 'censored', 'bar_censor', 'translation', 'twitter_username', "twitter_logo", 'patreon_username', 'commentary_request', 'tagme', 'commentary', 'character_name', 'mosaic_censoring', 'instagram_username', 'text_focus', 'english_commentary', 'comic', 'translation_request', 'fake_text', 'translated', 'paid_reward_available', 'thought_bubble', 'multiple_views', 'silent_comic', 'out-of-frame_censoring', 'symbol-only_commentary', '3koma', '2koma', 'character_watermark', 'spoken_question_mark', 'japanese_text', 'spanish_text', 'language_text', 'fanbox_username', 'commission', 'original', 'ai_generated', 'stable_diffusion', 'tagme_(artist)', 'text_bubble', 'qr_code', 'chinese_commentary', 'korean_text', 'partial_commentary', 'chinese_text', 'copyright_request', 'heart_censor', 'censored_nipples', 'page_number', 'scan', 'fake_magazine_cover', 'korean_commentary'])
+
+        background_options = {'Add Background': (random.choice(ADD_BG) + ',detailed_background', COLORED_BG), 'Remove Background': ('plain_background,simple_background,' + random.choice(COLORED_BG), ADD_BG), 'Remove All': ('', COLORED_BG + ADD_BG)}
+        if change_background in background_options:
+            prompt_addition, tags_to_remove_bg = background_options[change_background]
+            current_bad_tags.extend(tags_to_remove_bg)
+            if prompt_addition: current_processing_prompt = f'{current_processing_prompt.strip()},{prompt_addition}' if current_processing_prompt.strip() else prompt_addition
+
+        color_options = {'Colored': (None, BW_BG), 'Limited Palette': ('(limited_palette:1.3)', None), 'Monochrome': (','.join(BW_BG), None)} # tag_to_add, tags_to_remove_color
+        if change_color in color_options:
+            prompt_addition_color, tags_to_remove_color = color_options[change_color]
+            if tags_to_remove_color: current_bad_tags.extend(tags_to_remove_color)
+            if prompt_addition_color: current_processing_prompt = f'{current_processing_prompt.strip()},{prompt_addition_color}' if current_processing_prompt.strip() else prompt_addition_color
+
+        # Ranbooru tag fetching and initial cleaning
+        final_search_tags = tags_from_ui
+        if use_search_txt and choose_search_txt:
+            search_tags_content = open(os.path.join(user_search_dir, choose_search_txt), 'r').read()
+            split_tags = [line.strip() for line in search_tags_content.splitlines() if line.strip()]
+            if split_tags: selected_tags = random.choice(split_tags); final_search_tags = f'{final_search_tags},{selected_tags}' if final_search_tags else selected_tags
+
+        add_tags_query = '&tags=-animated'
+        if final_search_tags: add_tags_query += f'+{final_search_tags.replace(",", "+")}'
+        if mature_rating != 'All': add_tags_query += f'+rating:{RATINGS[booru][mature_rating]}'
+
+        api_url = booru_apis.get(booru, Gelbooru(fringe_benefits)); print(f'Using {booru}')
+        data = api_url.get_post(add_tags_query, max_pages, post_id) if post_id else api_url.get_data(add_tags_query, max_pages)
+        print(api_url.booru_url)
+
+        if 'post' not in data and 'posts' in data : data['post'] = data['posts']
+        if 'post' not in data or not data['post']: data['post'] = []
+        for post_item in data['post']: post_item['score'] = post_item.get('score', 0)
+        if sorting_order == 'High Score': data['post'] = sorted(data['post'], key=lambda k: k.get('score', 0), reverse=True)
+        elif sorting_order == 'Low Score': data['post'] = sorted(data['post'], key=lambda k: k.get('score', 0))
+
+        ranbooru_prompts = [] # This will hold multiple prompt strings if batch > 1
+        global last_img; last_img = []
+        preview_urls = [] # Not used further but part of original logic flow
+
+        num_images_to_generate = p.batch_size * p.n_iter
+        random_numbers = [0]*num_images_to_generate if post_id else self.random_number(sorting_order, num_images_to_generate)
+        if not data['post'] and num_images_to_generate > 0: raise Exception("No posts found from Booru. Try different tags or increase Max Pages.")
+
+        for i in range(num_images_to_generate):
+            idx = random_numbers[0] if same_prompt or not random_numbers else random_numbers[i]
+            if idx >= len(data['post']): idx = len(data['post']) -1 # Safety for smaller result sets
+
+            current_random_post = data['post'][idx]
+            if mix_prompt and not same_prompt :
+                temp_tags_mix = []; max_tags_mix = 0
+                for _ in range(0, mix_amount):
+                    mix_idx = self.random_number(sorting_order, 1)[0] if not post_id else 0
+                    if mix_idx >= len(data['post']): mix_idx = len(data['post']) -1
+                    temp_tags_mix.extend(data['post'][mix_idx].get('tags',"").split(' '))
+                    max_tags_mix = max(max_tags_mix, len(data['post'][mix_idx].get('tags',"").split(' ')))
+                temp_tags_mix = list(set(tag for tag in temp_tags_mix if tag)) # Ensure unique and non-empty
+                max_tags_mix = min(max(len(temp_tags_mix), 20), max_tags_mix)
+                current_random_post['tags'] = ' '.join(random.sample(temp_tags_mix, min(len(temp_tags_mix), max_tags_mix))) # Ensure sample size <= population
+
+            clean_tags = current_random_post.get('tags', '').replace('(', r'\(').replace(')', r'\)')
+            temp_tags_list = clean_tags.split(' ')
+            if shuffle_tags: random.shuffle(temp_tags_list)
+            ranbooru_prompts.append(','.join(tag for tag in temp_tags_list if tag)) # Filter empty tags from join
+            preview_urls.append(current_random_post.get('file_url', 'https://pic.re/image'))
+
+        if use_img2img or use_deepbooru:
+            image_source_urls = [data['post'][random_numbers[0]]['file_url']] if use_last_img and data['post'] and random_numbers else preview_urls
+            for img_url in image_source_urls[:num_images_to_generate]: # Limit to number of images needed
+                try:
+                    response = requests.get(img_url, headers=api_url.headers, timeout=10)
+                    response.raise_for_status() # Check for HTTP errors
                     last_img.append(Image.open(BytesIO(response.content)))
-            new_prompts = []
-            for current_prompt in prompts: # Renamed prompt to current_prompt
-                prompt_tags_list = [tag for tag in html.unescape(current_prompt).split(',') if tag.strip() not in bad_tags]
-                for bad_tag_item in bad_tags: # Renamed bad_tag to bad_tag_item
-                    if '*' in bad_tag_item: prompt_tags_list = [tag for tag in prompt_tags_list if bad_tag_item.replace('*', '') not in tag]
-                new_prompt_str = ','.join(prompt_tags_list) # Renamed
-                if change_dash: new_prompt_str = new_prompt_str.replace("_", " ")
-                new_prompts.append(new_prompt_str)
-            prompts = new_prompts
-            if len(prompts) == 1:
-                ranbooru_tags_to_add = prompts[0]
-                current_prompt_content = p.prompt.strip() if isinstance(p.prompt, str) else "" # Handle p.prompt list case
-                if current_prompt_content and ranbooru_tags_to_add: p.prompt = f"{current_prompt_content},{ranbooru_tags_to_add}"
-                elif ranbooru_tags_to_add: p.prompt = ranbooru_tags_to_add
-                if chaos_mode in ['Chaos', 'Less Chaos']:
-                    base_neg_for_chaos = p.negative_prompt if chaos_mode == 'Chaos' else ''
-                    p.prompt, generated_chaos_neg_tags = generate_chaos(p.prompt, base_neg_for_chaos, chaos_amount)
-                    if p.negative_prompt and generated_chaos_neg_tags: p.negative_prompt = f"{p.negative_prompt},{generated_chaos_neg_tags}"
-                    elif generated_chaos_neg_tags: p.negative_prompt = generated_chaos_neg_tags
-            else: # len(prompts) > 1
-                base_neg_prompt_from_ui = p.negative_prompt
-                if chaos_mode == 'Chaos':
-                    # ... (rest of chaos logic largely similar, ensure variables are defined)
-                    new_positive_prompts_list = []
-                    new_negative_prompts_list = []
-                    for ran_prompt_item in prompts:
-                        tmp_pos, tmp_neg = generate_chaos(ran_prompt_item, base_neg_prompt_from_ui, chaos_amount)
-                        new_positive_prompts_list.append(tmp_pos)
-                        new_negative_prompts_list.append(tmp_neg)
-                    prompts = new_positive_prompts_list
-                    p.negative_prompt = new_negative_prompts_list
-                elif chaos_mode == 'Less Chaos':
-                    new_positive_prompts_list = []
-                    new_negative_prompts_list = []
-                    for ran_prompt_item in prompts:
-                        tmp_pos, tmp_neg_chaos_only = generate_chaos(ran_prompt_item, "", chaos_amount)
-                        new_positive_prompts_list.append(tmp_pos)
-                        current_neg = f"{base_neg_prompt_from_ui},{tmp_neg_chaos_only}" if base_neg_prompt_from_ui and tmp_neg_chaos_only else (base_neg_prompt_from_ui or tmp_neg_chaos_only or "")
-                        new_negative_prompts_list.append(current_neg)
-                    prompts = new_positive_prompts_list
-                    p.negative_prompt = new_negative_prompts_list
-                else:
-                    p.negative_prompt = [base_neg_prompt_from_ui for _ in range(len(prompts))]
-                base_prompt_from_ui = self.original_prompt.strip()
-                processed_prompts_list = []
-                for ran_prompt_item in prompts:
-                    if base_prompt_from_ui and ran_prompt_item: processed_prompts_list.append(f"{base_prompt_from_ui},{ran_prompt_item}")
-                    elif ran_prompt_item: processed_prompts_list.append(ran_prompt_item)
-                    else: processed_prompts_list.append(base_prompt_from_ui)
-                p.prompt = processed_prompts_list
-                if use_img2img:
-                    if len(last_img) < len(prompts): last_img = [last_img[0] for _ in range(len(prompts))] if last_img else []
-            final_forbidden_tags = set()
-            if forbidden_prompt_tags_text:
-                manual_forbidden = [tag.strip().lower() for tag in forbidden_prompt_tags_text.split(',') if tag.strip()]
-                final_forbidden_tags.update(manual_forbidden)
-            if use_forbidden_prompt_txt and choose_forbidden_prompt_txt:
+                except requests.RequestException as e: print(f"Error fetching image {img_url}: {e}") # Handle network errors
+                except Exception as e: print(f"Error processing image {img_url}: {e}") # Handle other image errors
+            if not last_img and (use_img2img or use_deepbooru) : print("Warning: No images could be fetched for img2img/DeepBooru.")
+
+
+        # Initial cleaning of Ranbooru-generated tags
+        all_bad_tags = list(set(current_bad_tags)) # Combine bad tags from background/color with general ones
+        if ',' in remove_tags: all_bad_tags.extend(tag.strip() for tag in remove_tags.split(',') if tag.strip())
+        elif remove_tags.strip() : all_bad_tags.append(remove_tags.strip())
+        if use_remove_txt and choose_remove_txt:
+            try: all_bad_tags.extend(tag.strip() for tag in open(os.path.join(user_remove_dir, choose_remove_txt), 'r').read().split(',') if tag.strip())
+            except Exception as e: print(f"Error reading remove_tags file: {e}")
+
+        cleaned_ranbooru_prompts = []
+        for rp_item in ranbooru_prompts: # rp_item is a string of tags
+            tags_list = [tag for tag in html.unescape(rp_item).split(',') if tag.strip()]
+            final_tags_for_rp = []
+            for tag_item in tags_list:
+                is_bad = False
+                for bad_tag_item in all_bad_tags:
+                    if '*' in bad_tag_item and bad_tag_item.replace('*', '') in tag_item: is_bad = True; break
+                    elif bad_tag_item == tag_item: is_bad = True; break
+                if not is_bad: final_tags_for_rp.append(tag_item)
+
+            new_prompt_str = ','.join(final_tags_for_rp)
+            if change_dash: new_prompt_str = new_prompt_str.replace("_", " ")
+            cleaned_ranbooru_prompts.append(new_prompt_str)
+        ranbooru_prompts = cleaned_ranbooru_prompts
+
+        # --- BEGIN MOVED AND MODIFIED FORBIDDEN PROMPT TAGS FILTERING (applies only to ranbooru_prompts) ---
+        forbidden_tags_to_apply = set()
+        if forbidden_prompt_tags_text:
+            forbidden_tags_to_apply.update(tag.strip().lower() for tag in forbidden_prompt_tags_text.split(',') if tag.strip())
+        if use_forbidden_prompt_txt and choose_forbidden_prompt_txt:
+            try:
                 forbidden_file_path = os.path.join(user_forbidden_prompt_dir, choose_forbidden_prompt_txt)
                 if os.path.exists(forbidden_file_path):
-                    try:
-                        with open(forbidden_file_path, 'r', encoding='utf-8') as f:
-                            file_forbidden = [line.strip().lower() for line in f if line.strip()]
-                        final_forbidden_tags.update(file_forbidden)
-                    except Exception as e: print(f"Error reading forbidden tags file {forbidden_file_path}: {e}")
-            if final_forbidden_tags:
+                    with open(forbidden_file_path, 'r', encoding='utf-8') as f:
+                        forbidden_tags_to_apply.update(line.strip().lower() for line in f if line.strip())
+            except Exception as e: print(f"Error reading chosen forbidden tags file {choose_forbidden_prompt_txt}: {e}")
+
+        if forbidden_tags_to_apply:
+            filtered_ranbooru_prompts_final = []
+            for tag_string in ranbooru_prompts:
+                tags_list = [tag.strip() for tag in tag_string.split(',') if tag.strip()]
+                kept_tags = [tag for tag in tags_list if tag.lower() not in forbidden_tags_to_apply]
+                filtered_ranbooru_prompts_final.append(','.join(kept_tags))
+            ranbooru_prompts = filtered_ranbooru_prompts_final
+        # --- END MOVED AND MODIFIED FORBIDDEN PROMPT TAGS FILTERING ---
+
+        # Base for combining: user's prompt after background/color changes
+        user_base_prompt = current_processing_prompt.strip()
+
+        if len(ranbooru_prompts) == 1:
+            ranbooru_tags_to_add = ranbooru_prompts[0]
+            if user_base_prompt and ranbooru_tags_to_add: p.prompt = f"{user_base_prompt},{ranbooru_tags_to_add}"
+            elif ranbooru_tags_to_add: p.prompt = ranbooru_tags_to_add
+            else: p.prompt = user_base_prompt # If ranbooru tags are empty, use base
+
+            if chaos_mode in ['Chaos', 'Less Chaos']:
+                # Apply chaos to the full p.prompt (user_base_prompt + filtered ranbooru_tags_to_add)
+                # Negative prompt for chaos is UI negative prompt
+                base_neg_for_chaos = p.negative_prompt if chaos_mode == 'Chaos' else ''
+                p.prompt, generated_chaos_neg_tags = generate_chaos(p.prompt, base_neg_for_chaos, chaos_amount)
+                if p.negative_prompt and generated_chaos_neg_tags: p.negative_prompt = f"{p.negative_prompt},{generated_chaos_neg_tags}"
+                elif generated_chaos_neg_tags: p.negative_prompt = generated_chaos_neg_tags
+        else: # Multiple prompts (batch size > 1 or n_iter > 1)
+            base_neg_prompt_from_ui = p.negative_prompt
+
+            if chaos_mode == 'Chaos':
+                processed_ranbooru_for_chaos = []
+                new_negative_prompts_list = []
+                for rp_item in ranbooru_prompts: # rp_item is already filtered
+                    tmp_pos, tmp_neg = generate_chaos(rp_item, base_neg_prompt_from_ui, chaos_amount)
+                    processed_ranbooru_for_chaos.append(tmp_pos)
+                    new_negative_prompts_list.append(tmp_neg)
+                ranbooru_prompts = processed_ranbooru_for_chaos
+                p.negative_prompt = new_negative_prompts_list
+            elif chaos_mode == 'Less Chaos':
+                processed_ranbooru_for_chaos = []
+                new_negative_prompts_list = []
+                for rp_item in ranbooru_prompts: # rp_item is already filtered
+                    tmp_pos, tmp_neg_chaos_only = generate_chaos(rp_item, "", chaos_amount) # Chaos only on ranbooru tags
+                    processed_ranbooru_for_chaos.append(tmp_pos)
+                    current_neg = f"{base_neg_prompt_from_ui.strip()},{tmp_neg_chaos_only}" if base_neg_prompt_from_ui.strip() and tmp_neg_chaos_only else (base_neg_prompt_from_ui.strip() or tmp_neg_chaos_only or "")
+                    new_negative_prompts_list.append(current_neg.strip(',')) # clean leading/trailing commas
+                ranbooru_prompts = processed_ranbooru_for_chaos
+                p.negative_prompt = new_negative_prompts_list
+            else:
+                p.negative_prompt = [base_neg_prompt_from_ui for _ in range(len(ranbooru_prompts))]
+
+            final_batch_prompts = []
+            for rp_item in ranbooru_prompts: # rp_item is filtered & possibly chaos'd
+                if user_base_prompt and rp_item: final_batch_prompts.append(f"{user_base_prompt},{rp_item}")
+                elif rp_item: final_batch_prompts.append(rp_item)
+                else: final_batch_prompts.append(user_base_prompt)
+            p.prompt = final_batch_prompts
+
+            if use_img2img and last_img: # Ensure last_img is not empty
+                if len(last_img) < len(p.prompt): # Match image list size to prompt list size
+                    last_img.extend([last_img[-1]] * (len(p.prompt) - len(last_img)))
+                elif len(last_img) > len(p.prompt):
+                    last_img = last_img[:len(p.prompt)]
+
+        # Negative Mode (applied after all positive prompt construction)
+        if negative_mode == 'Negative':
+            # self.original_prompt is the pure UI input.
+            # p.prompt at this stage is (user_base_prompt + filtered_ranbooru_tags (+chaos))
+            # We want to move the Ranbooru-derived part to negative.
+            # This is tricky because ranbooru_prompts was already combined.
+            # A simpler interpretation: original prompt becomes positive, everything else negative.
+            # This was how it was structured before.
+            if isinstance(p.prompt, list):
+                new_positive_prompts_neg = []
+                new_negative_prompts_neg = []
+                current_negative_prompts = p.negative_prompt if isinstance(p.negative_prompt, list) else [p.negative_prompt] * len(p.prompt)
+                for i, full_prompt_str in enumerate(p.prompt):
+                    current_neg = current_negative_prompts[i]
+                    # Assume user_base_prompt was the prefix for full_prompt_str
+                    # This needs careful reconstruction of what was purely from Ranbooru.
+                    # For now, let's keep the previous simpler logic: user's original is positive, generated part of p.prompt is negative.
+                    # This part needs careful re-evaluation if `user_base_prompt` is complex.
+                    # Simplified: use original_prompt as positive, current p.prompt (without original) as negative part.
+
+                    # Reconstruct what was added beyond self.original_prompt
+                    # This is complex if self.original_prompt was empty or p.prompt was modified in place by chaos.
+                    # Let's assume the current p.prompt items are what should be split.
+                    # The parts NOT in self.original_prompt go to negative.
+
+                    tags_to_move_to_negative = []
+                    original_tags_set = set(tag.strip() for tag in self.original_prompt.split(',') if tag.strip())
+                    current_prompt_tags = [tag.strip() for tag in full_prompt_str.split(',') if tag.strip()]
+
+                    user_tags_in_current_prompt = []
+
+                    for tag in current_prompt_tags:
+                        if tag in original_tags_set: # Or if it was part of background/color changes derived from original
+                             user_tags_in_current_prompt.append(tag) # Keep it simple: only exact original tags are "user's"
+                        else:
+                             tags_to_move_to_negative.append(tag)
+
+                    new_positive_prompts_neg.append(",".join(user_tags_in_current_prompt)) # Or just self.original_prompt
+                    additional_neg = ",".join(tags_to_move_to_negative)
+                    new_negative_prompts_neg.append(f"{current_neg},{additional_neg}".strip(','))
+
+                p.prompt = new_positive_prompts_neg
+                p.negative_prompt = new_negative_prompts_neg
+            elif isinstance(p.prompt, str): # Single prompt case
+                tags_to_move_to_negative = []
+                original_tags_set = set(tag.strip() for tag in self.original_prompt.split(',') if tag.strip())
+                current_prompt_tags = [tag.strip() for tag in p.prompt.split(',') if tag.strip()]
+                user_tags_in_current_prompt = []
+
+                for tag in current_prompt_tags:
+                    if tag in original_tags_set: user_tags_in_current_prompt.append(tag)
+                    else: tags_to_move_to_negative.append(tag)
+
+                p.prompt = ",".join(user_tags_in_current_prompt) # Or just self.original_prompt
+                additional_neg = ",".join(tags_to_move_to_negative)
+                p.negative_prompt = f"{p.negative_prompt},{additional_neg}".strip(',')
+
+        # Padding negative prompts if lengths are inconsistent (batch mode)
+        if isinstance(p.negative_prompt, list) and len(p.negative_prompt) > 1:
+            neg_prompt_tokens = [model_hijack.get_prompt_lengths(pr_item)[1] for pr_item in p.negative_prompt]
+            if len(set(neg_prompt_tokens)) != 1:
+                print('Padding negative prompts'); max_tokens = max(neg_prompt_tokens)
+                for num, neg_len in enumerate(neg_prompt_tokens):
+                    while neg_len < max_tokens:
+                        current_neg_prompt_item_parts = p.negative_prompt[num].split(',')
+                        p.negative_prompt[num] += ("," + random.choice(current_neg_prompt_item_parts)) if current_neg_prompt_item_parts and current_neg_prompt_item_parts[0] else ",_"
+                        neg_len = model_hijack.get_prompt_lengths(p.negative_prompt[num])[1]
+
+        # Limit/Max tags
+        if limit_tags_percentage < 1:
+            if isinstance(p.prompt, list): p.prompt = [limit_prompt_tags(pr_item, limit_tags_percentage, 'Limit') for pr_item in p.prompt]
+            else: p.prompt = limit_prompt_tags(p.prompt, limit_tags_percentage, 'Limit')
+        if max_tags_count > 0: # Renamed from max_tags
+            if isinstance(p.prompt, list): p.prompt = [limit_prompt_tags(pr_item, max_tags_count, 'Max') for pr_item in p.prompt]
+            else: p.prompt = limit_prompt_tags(p.prompt, max_tags_count, 'Max')
+
+        if use_same_seed:
+            p.seed = random.randint(0, 2**32 - 1) if p.seed == -1 else p.seed
+            if hasattr(p, 'batch_size') and p.batch_size is not None: p.seed = [p.seed] * p.batch_size
+            else: p.seed = [p.seed]
+
+        p = self.loranado(lora_enabled_ui, lora_folder, lora_amount, lora_min, lora_max, lora_custom_weights, p, lora_lock_prev)
+
+        if use_deepbooru and not use_img2img:
+            if last_img : self.last_img = last_img # Ensure self.last_img is set from fetched images
+            else: print("DeepBooru selected but no images were fetched/available for tagging.")
+
+            if self.last_img: # Only proceed if images are available
+                tagged_prompts = self.use_autotagger('deepbooru') # This will use self.last_img
                 if isinstance(p.prompt, list):
-                    # ... (rest of forbidden tags filtering largely similar) ...
-                    processed_prompts_forbidden = []
-                    for current_prompt_str_forbidden in p.prompt:
-                        prompt_tags_list_forbidden = [tag.strip() for tag in current_prompt_str_forbidden.split(',')]
-                        kept_tags_forbidden = [tag for tag in prompt_tags_list_forbidden if tag.strip().lower() not in final_forbidden_tags]
-                        processed_prompts_forbidden.append(','.join(kept_tags_forbidden))
-                    p.prompt = processed_prompts_forbidden
-                elif isinstance(p.prompt, str):
-                    prompt_tags_list_forbidden = [tag.strip() for tag in p.prompt.split(',')]
-                    kept_tags_forbidden = [tag for tag in prompt_tags_list_forbidden if tag.strip().lower() not in final_forbidden_tags]
-                    p.prompt = ','.join(kept_tags_forbidden)
-            if negative_mode == 'Negative':
-                orig_list = self.original_prompt.split(',')
-                if isinstance(p.prompt, list):
-                    # ... (rest of negative mode largely similar) ...
-                    new_positive_prompts_neg = []
-                    new_negative_prompts_neg = []
-                    for pr_neg, npp_neg in zip(p.prompt, p.negative_prompt if isinstance(p.negative_prompt, list) else [p.negative_prompt]*len(p.prompt)):
-                        clean_prompt_neg = pr_neg.split(',')
-                        clean_prompt_neg = [tag for tag in clean_prompt_neg if tag not in orig_list]
-                        new_positive_prompts_neg.append(self.original_prompt)
-                        new_negative_prompts_neg.append(f'{npp_neg},{",".join(clean_prompt_neg)}')
-                    p.prompt = new_positive_prompts_neg
-                    p.negative_prompt = new_negative_prompts_neg
-                else:
-                    clean_prompt_neg = p.prompt.split(',')
-                    clean_prompt_neg = [tag for tag in clean_prompt_neg if tag not in orig_list]
-                    p.negative_prompt = f'{p.negative_prompt},{",".join(clean_prompt_neg)}'
-                    p.prompt = self.original_prompt
-            if negative_mode == 'Negative' or chaos_mode in ['Chaos', 'Less Chaos']:
-                if isinstance(p.negative_prompt, list): # Ensure it's a list before iterating
-                    neg_prompt_tokens = [model_hijack.get_prompt_lengths(pr_item)[1] for pr_item in p.negative_prompt] # Renamed pr to pr_item
-                    if len(set(neg_prompt_tokens)) != 1:
-                        print('Padding negative prompts')
-                        max_tokens = max(neg_prompt_tokens)
-                        for num, neg_len in enumerate(neg_prompt_tokens): # Renamed neg to neg_len
-                            while neg_len < max_tokens:
-                                current_neg_prompt_item = p.negative_prompt[num].split(',') # Renamed
-                                if current_neg_prompt_item : p.negative_prompt[num] += random.choice(current_neg_prompt_item)
-                                else: p.negative_prompt[num] += "_" # Add padding if empty
-                                neg_len = model_hijack.get_prompt_lengths(p.negative_prompt[num])[1]
-            if limit_tags < 1:
-                if isinstance(p.prompt, list): p.prompt = [limit_prompt_tags(pr_item, limit_tags, 'Limit') for pr_item in p.prompt]
-                else: p.prompt = limit_prompt_tags(p.prompt, limit_tags, 'Limit')
-            if max_tags > 0:
-                if isinstance(p.prompt, list): p.prompt = [limit_prompt_tags(pr_item, max_tags, 'Max') for pr_item in p.prompt]
-                else: p.prompt = limit_prompt_tags(p.prompt, max_tags, 'Max')
-            if use_same_seed:
-                p.seed = random.randint(0, 2 ** 32 - 1) if p.seed == -1 else p.seed
-                if hasattr(p, 'batch_size') and p.batch_size is not None : p.seed = [p.seed] * p.batch_size
-                else: p.seed = [p.seed] # if batch_size is not available or 1
-            p = self.loranado(lora_enabled, lora_folder, lora_amount, lora_min, lora_max, lora_custom_weights, p, lora_lock_prev)
-            if use_deepbooru and not use_img2img:
-                self.last_img = last_img # ensure self.last_img is set
+                    # Ensure tagged_prompts has enough items for the batch
+                    if len(tagged_prompts) < len(p.prompt):
+                        tagged_prompts.extend([tagged_prompts[-1] if tagged_prompts else ""] * (len(p.prompt) - len(tagged_prompts)))
+                    p.prompt = [modify_prompt(p.prompt[i], tagged_prompts[i], type_deepbooru) for i in range(len(p.prompt))]
+                    p.prompt = [remove_repeated_tags(pr_item) for pr_item in p.prompt]
+                else: # Single prompt
+                    p.prompt = modify_prompt(p.prompt, tagged_prompts[0] if tagged_prompts else "", type_deepbooru)
+                    p.prompt = remove_repeated_tags(p.prompt)
+
+        if use_img2img: # This sets up p for img2img, postprocess will execute it
+            if not use_ip:
+                self.real_steps = p.steps; p.steps = 1
+                if last_img: self.last_img = last_img # Ensure self.last_img is set
+                else: print("Img2Img selected but no images were fetched/available.")
+            if use_ip and last_img: # Ensure last_img for ControlNet too
+                controlNetModule = importlib.import_module('extensions.sd-webui-controlnet.scripts.external_code', 'external_code')
+                controlNetList = controlNetModule.get_all_units_in_processing(p)
+                if controlNetList:
+                    copied_network = controlNetList[0].__dict__.copy()
+                    copied_network['enabled'] = True; copied_network['weight'] = denoising
+                    copied_network['image']['image'] = np.array(last_img[0]) # Use first image for CN
+                    controlNetModule.update_cn_script_in_processing(p, [copied_network] + controlNetList[1:])
+
+    def postprocess(self, p, processed, *args): # Removed all args not used by this specific override
+        # The actual arguments received by postprocess are defined in the Script base class in modules.scripts
+        # We only care about use_img2img, use_ip, enabled from the UI elements passed to before_process
+        # Need to get these values. A common way is to store them on `self` in `before_process`.
+        # For now, let's assume they are available on `self` if set in `before_process`.
+        # This method needs access to: self.use_img2img, self.use_ip, self.enabled (from UI), self.last_img,
+        # self.real_steps, self.denoising, self.use_deepbooru, self.type_deepbooru, self.crop_center.
+        # These would need to be set on `self` in `before_process` if they are to be used here.
+        # This is a simplification as the actual UI args are not passed directly to postprocess by the webui.
+
+        # Simplified: Assume relevant 'self' attributes were set in before_process
+        # For the purpose of this subtask, we are focused on before_process logic.
+        # The postprocess logic below is from the original and may need self. attributes.
+
+        # Check if necessary attributes are present on self (they should have been set in before_process)
+        use_img2img_flag = getattr(self, 'use_img2img_flag', False)
+        use_ip_flag = getattr(self, 'use_ip_flag', False)
+        enabled_flag = getattr(self, 'enabled_flag', False)
+
+        if use_img2img_flag and not use_ip_flag and enabled_flag and self.last_img:
+            print('Using pictures for img2img in postprocess')
+
+            p_width = p.width if hasattr(p,'width') else 512
+            p_height = p.height if hasattr(p,'height') else 512
+            crop_center_flag = getattr(self, 'crop_center_flag', False)
+
+            if crop_center_flag:
+                self.last_img = [resize_image(img, p_width, p_height, cropping=True) for img in self.last_img]
+            else:
+                # Ensure all images are processed for orientation if not cropping
+                processed_last_img = []
+                for img_item in self.last_img:
+                    orient_width, orient_height = self.check_orientation(img_item)
+                    processed_last_img.append(resize_image(img_item, orient_width, orient_height, cropping=False)) # resize to orientation
+                self.last_img = processed_last_img
+                # For StableDiffusionProcessingImg2Img, width/height should be consistent for the batch
+                # So, we use the orientation of the first image for all if not cropping
+                if self.last_img:
+                     p_width, p_height = self.last_img[0].size
+
+
+            final_prompts_for_img2img = p.prompt # p.prompt should be prepared by before_process
+            use_deepbooru_flag = getattr(self, 'use_deepbooru_flag', False)
+            type_deepbooru_val = getattr(self, 'type_deepbooru_val', "Add Before")
+
+            if use_deepbooru_flag:
                 tagged_prompts = self.use_autotagger('deepbooru')
                 if isinstance(p.prompt, list):
-                    p.prompt = [modify_prompt(pr_item, tagged_prompts[num], type_deepbooru) for num, pr_item in enumerate(p.prompt)]
-                    p.prompt = [remove_repeated_tags(pr_item) for pr_item in p.prompt]
+                    if len(tagged_prompts) < len(p.prompt): tagged_prompts.extend([""]*(len(p.prompt)-len(tagged_prompts)))
+                    final_prompts_for_img2img = [modify_prompt(p.prompt[i], tagged_prompts[i], type_deepbooru_val) for i in range(len(p.prompt))]
+                    final_prompts_for_img2img = [remove_repeated_tags(pr) for pr in final_prompts_for_img2img]
                 else:
-                    p.prompt = modify_prompt(p.prompt, tagged_prompts[0] if tagged_prompts else "", type_deepbooru) # Handle empty tagged_prompts
-                    p.prompt = remove_repeated_tags(p.prompt)
-            if use_img2img:
-                if not use_ip:
-                    self.real_steps = p.steps
-                    p.steps = 1
-                    self.last_img = last_img
-                if use_ip:
-                    controlNetModule = importlib.import_module('extensions.sd-webui-controlnet.scripts.external_code', 'external_code')
-                    controlNetList = controlNetModule.get_all_units_in_processing(p)
-                    if controlNetList: # Check if list is not empty
-                        copied_network = controlNetList[0].__dict__.copy()
-                        copied_network['enabled'] = True
-                        copied_network['weight'] = denoising
-                        if last_img: array_img = np.array(last_img[0]) # Check last_img not empty
-                        else: array_img = np.zeros((512,512,3), dtype=np.uint8) # Dummy image if no image
-                        copied_network['image']['image'] = array_img
-                        copied_networks = [copied_network] + controlNetList[1:]
-                        controlNetModule.update_cn_script_in_processing(p, copied_networks)
-        elif lora_enabled:
-            p = self.loranado(lora_enabled, lora_folder, lora_amount, lora_min, lora_max, lora_custom_weights, p, lora_lock_prev)
+                    final_prompts_for_img2img = modify_prompt(p.prompt, tagged_prompts[0] if tagged_prompts else "", type_deepbooru_val)
+                    final_prompts_for_img2img = remove_repeated_tags(final_prompts_for_img2img)
 
-    def postprocess(self, p, processed, enabled, tags, booru, remove_bad_tags, max_pages, change_dash, same_prompt, fringe_benefits, remove_tags, use_img2img, denoising, use_last_img, change_background, change_color, shuffle_tags, post_id, mix_prompt, mix_amount, chaos_mode, negative_mode, chaos_amount, limit_tags, max_tags, sorting_order, mature_rating, lora_folder, lora_amount, lora_min, lora_max, lora_enabled, lora_custom_weights, lora_lock_prev, use_ip, use_search_txt, use_remove_txt, choose_search_txt, choose_remove_txt, search_refresh_btn, remove_refresh_btn, forbidden_prompt_tags_text, use_forbidden_prompt_txt, choose_forbidden_prompt_txt, crop_center, use_deepbooru, type_deepbooru, use_same_seed, use_cache, disable_prompt_modification):
-        if use_img2img and not use_ip and enabled and self.last_img: # Added self.last_img check
-            print('Using pictures')
-            if crop_center:
-                width, height = p.width, p.height
-                self.last_img = [resize_image(img, width, height, cropping=True) for img in self.last_img]
-            else:
-                width, height = self.check_orientation(self.last_img[0])
-            final_prompts = p.prompt
-            if use_deepbooru:
-                tagged_prompts = self.use_autotagger('deepbooru') # This returns a list
-                if isinstance(p.prompt, list):
-                    final_prompts = [modify_prompt(pr, (tagged_prompts[num] if num < len(tagged_prompts) else ""), type_deepbooru) for num, pr in enumerate(p.prompt)] # Check index
-                    final_prompts = [remove_repeated_tags(pr) for pr in final_prompts]
-                else: # p.prompt is a string
-                    final_prompts = modify_prompt(p.prompt, (tagged_prompts[0] if tagged_prompts else ""), type_deepbooru) # Check index
-                    final_prompts = remove_repeated_tags(final_prompts)
-
-            # Ensure p.sampler_name and p.scheduler are valid, or provide defaults
-            sampler_name = p.sampler_name if hasattr(p, 'sampler_name') and p.sampler_name else "Euler a"
-            scheduler = p.scheduler if hasattr(p, 'scheduler') and p.scheduler else None
-
-            p_img2img = StableDiffusionProcessingImg2Img( # Renamed variable
+            p_img2img = StableDiffusionProcessingImg2Img(
                 sd_model=shared.sd_model,
                 outpath_samples=shared.opts.outdir_samples or shared.opts.outdir_img2img_samples,
                 outpath_grids=shared.opts.outdir_grids or shared.opts.outdir_img2img_grids,
-                prompt=final_prompts,
+                prompt=final_prompts_for_img2img,
                 negative_prompt=p.negative_prompt,
-                seed=p.seed,
-                sampler_name=sampler_name, # Use ensured sampler_name
-                scheduler=scheduler, # Use ensured scheduler
-                batch_size=p.batch_size,
-                n_iter=p.n_iter,
-                steps=self.real_steps,
-                cfg_scale=p.cfg_scale,
-                width=width,
-                height=height,
-                init_images=self.last_img,
-                denoising_strength=denoising,
+                seed=p.seed if hasattr(p,'seed') else -1, # Ensure seed is available
+                sampler_name=p.sampler_name if hasattr(p,'sampler_name') else "Euler a",
+                scheduler=p.scheduler if hasattr(p,'scheduler') else None,
+                batch_size=p.batch_size if hasattr(p,'batch_size') else 1,
+                n_iter=p.n_iter if hasattr(p,'n_iter') else 1,
+                steps=getattr(self, 'real_steps', p.steps if hasattr(p,'steps') else 20), # Use real_steps if available
+                cfg_scale=p.cfg_scale if hasattr(p,'cfg_scale') else 7.0,
+                width=p_width,
+                height=p_height,
+                init_images=self.last_img, # This should be a list of PIL Images
+                denoising_strength=getattr(self, 'denoising_strength', 0.75) # Use stored denoising
             )
-            proc = process_images(p_img2img) # Use new variable name
-            processed.images = proc.images
-            processed.infotexts = proc.infotexts
-            if use_last_img:
-                processed.images.append(self.last_img[0])
-            else:
-                for num, img in enumerate(self.last_img):
-                    if num < len(proc.infotexts): # Ensure index exists
-                         processed.images.append(img)
-                         processed.infotexts.append(proc.infotexts[num]) # Corrected index for infotexts
+            proc = process_images(p_img2img)
+            # Append results carefully
+            if not hasattr(processed, 'images'): processed.images = []
+            if not hasattr(processed, 'infotexts'): processed.infotexts = []
+
+            processed.images.extend(proc.images)
+            processed.infotexts.extend(proc.infotexts)
+
+            use_last_img_flag = getattr(self, 'use_last_img_flag', False)
+            if use_last_img_flag: # Append the source image used for all generations if this flag was true
+                if self.last_img : processed.images.append(self.last_img[0])
+            else: # Append all source images used
+                 processed.images.extend(self.last_img)
+
 
     def random_number(self, sorting_order, size):
         global COUNT
-        # Ensure COUNT is at least 1 to prevent error in np.arange or random.sample if size > COUNT
         effective_count = max(1, COUNT if COUNT <= POST_AMOUNT else POST_AMOUNT)
-        if size > effective_count : size = effective_count # Cannot sample more than available
-
-        if sorting_order in ('High Score', 'Low Score') and effective_count > 0: # effective_count > 0 for p value
-            weights = np.arange(effective_count, 0, -1)
-            weights = weights / weights.sum()
-            # Ensure size is not greater than effective_count for choice with replace=False
+        if size <= 0 : return [] # handle invalid size
+        if size > effective_count : size = effective_count
+        if sorting_order in ('High Score', 'Low Score') and effective_count > 0:
+            weights = np.arange(effective_count, 0, -1); weights = weights / weights.sum()
             random_numbers = np.random.choice(np.arange(effective_count), size=min(size, effective_count), p=weights, replace=False)
-        elif effective_count > 0 : # For random sort or if other conditions not met but count > 0
-             random_numbers = random.sample(range(effective_count), min(size, effective_count))
-        else: # effective_count is 0 or less (should be 1 due to max(1, ...))
-            random_numbers = []
+        elif effective_count > 0 : random_numbers = random.sample(range(effective_count), min(size, effective_count))
+        else: random_numbers = []
         return random_numbers.tolist() if isinstance(random_numbers, np.ndarray) else random_numbers
 
-
-    def use_autotagger(self, model_name): # Renamed model to model_name
-        if model_name == 'deepbooru' and self.last_img: # Added self.last_img check
+    def use_autotagger(self, model_name):
+        if model_name == 'deepbooru' and hasattr(self, 'last_img') and self.last_img:
+            # Use self.original_prompt for context, ensure it's a list matching self.last_img length
+            original_prompts_for_tagging = []
+            num_images = len(self.last_img)
             if isinstance(self.original_prompt, str):
-                orig_prompt_list = [self.original_prompt] * len(self.last_img) # Match length of last_img
+                original_prompts_for_tagging = [self.original_prompt] * num_images
             elif isinstance(self.original_prompt, list):
-                orig_prompt_list = self.original_prompt
-                # Ensure orig_prompt_list length matches last_img, truncate or pad if necessary
-                if len(orig_prompt_list) > len(self.last_img):
-                    orig_prompt_list = orig_prompt_list[:len(self.last_img)]
-                elif len(orig_prompt_list) < len(self.last_img):
-                    orig_prompt_list.extend([orig_prompt_list[-1] if orig_prompt_list else ""] * (len(self.last_img) - len(orig_prompt_list)))
-            else: # Fallback if original_prompt is not str or list
-                orig_prompt_list = [""] * len(self.last_img)
+                original_prompts_for_tagging = self.original_prompt
+                if len(original_prompts_for_tagging) < num_images:
+                    last_val = original_prompts_for_tagging[-1] if original_prompts_for_tagging else ""
+                    original_prompts_for_tagging.extend([last_val] * (num_images - len(original_prompts_for_tagging)))
+                elif len(original_prompts_for_tagging) > num_images:
+                    original_prompts_for_tagging = original_prompts_for_tagging[:num_images]
+            else: # Fallback
+                original_prompts_for_tagging = [""] * num_images
 
-            deepbooru.model.start()
-            # Ensure that we iterate up to the minimum length of images and prompts available
-            iter_len = min(len(self.last_img), len(orig_prompt_list))
-            final_prompts = [orig_prompt_list[i] + ',' + deepbooru.model.tag_multi(self.last_img[i]) for i in range(iter_len)]
-            deepbooru.model.stop()
-            return final_prompts
-        return [] # Return empty list if no processing done
+            final_tagged_prompts = []
+            try:
+                deepbooru.model.start()
+                for i in range(num_images):
+                    final_tagged_prompts.append(original_prompts_for_tagging[i] + ',' + deepbooru.model.tag_multi(self.last_img[i]))
+            except Exception as e:
+                print(f"Error during DeepBooru tagging: {e}")
+            finally:
+                if hasattr(deepbooru, 'model') and hasattr(deepbooru.model, 'stop'): deepbooru.model.stop()
+            return final_tagged_prompts
+        return []
