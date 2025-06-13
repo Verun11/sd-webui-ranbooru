@@ -158,13 +158,10 @@ s=post&q=index&json=1&limit={POST_AMOUNT}{GEL_API_AUTH}')
         for loop in range(2): # run loop at most twice
             if id:
                 add_tags = ''
-            self.booru_url = f"{self.booru_url}&pid={random.randint(0, max_pages\
--1)}{id}{add_tags}"
-            # The randint function is an alias to randrange(a, b+1), so 'max_pag\
-es' should be passed as 'max_pages-1'
+            self.booru_url = f"{self.booru_url}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
+            # The randint function is an alias to randrange(a, b+1), so 'max_pages' should be passed as 'max_pages-1'
             if self.fringeBenefits:
-                res = requests.get(self.booru_url, cookies={'fringeBenefits': 'y\
-up'})
+                res = requests.get(self.booru_url, cookies={'fringeBenefits': 'yup'})
             else:
                 res = requests.get(self.booru_url)
             data = res.json()
