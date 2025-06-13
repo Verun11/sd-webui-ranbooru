@@ -43,12 +43,16 @@ if not os.path.isfile(os.path.join(user_forbidden_prompt_dir, 'tags_forbidden.tx
 
 GEL_API_AUTH, DAN_API_AUTH = '', ''
 DANBOORU_TIER = os.getenv("danbooru_tier")
-if os.getenv("danbooru_login") and os.getenv("danbooru_api_key"):
-    DAN_API_AUTH = f'&login={os.getenv("danbooru_login")}&api_key={os.getenv("da\
-nbooru_api_key")}'
-if os.getenv("gelbooru_user_id") and os.getenv("gelbooru_api_key"):
-    GEL_API_AUTH = f'&user_id={os.getenv("gelbooru_user_id")}&api_key={os.getenv\
-("gelbooru_api_key")}'
+
+danbooru_login_val = os.getenv("danbooru_login")
+danbooru_api_key_val = os.getenv("danbooru_api_key")
+if danbooru_login_val and danbooru_api_key_val:
+    DAN_API_AUTH = f'&login={danbooru_login_val}&api_key={danbooru_api_key_val}'
+
+gelbooru_user_id_val = os.getenv("gelbooru_user_id")
+gelbooru_api_key_val = os.getenv("gelbooru_api_key")
+if gelbooru_user_id_val and gelbooru_api_key_val:
+    GEL_API_AUTH = f'&user_id={gelbooru_user_id_val}&api_key={gelbooru_api_key_val}'
 
 COLORED_BG = ['black_background', 'aqua_background', 'white_background', 'colo\
 red_background', 'gray_background', 'blue_background', 'green_background', 'red_ba\
