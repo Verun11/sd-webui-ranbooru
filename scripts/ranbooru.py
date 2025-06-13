@@ -62,8 +62,7 @@ ground', 'two-tone_background', 'grey_background']
 ADD_BG = ['outdoors', 'indoors']
 BW_BG = ['monochrome', 'greyscale', 'grayscale']
 POST_AMOUNT = 100
-COUNT = 100 #Number of images the search returned. Booru classes below were modi\
-fied to update this value with the latest search result count.
+COUNT = 100 #Number of images the search returned. Booru classes below were modified to update this value with the latest search result count.
 DEBUG = False
 BOORU_ENDPOINTS= {
     "gelbooru": "https://gelbooru.com/index.php?page=post&s=view&id=",
