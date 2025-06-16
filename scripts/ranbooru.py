@@ -86,12 +86,29 @@ class Gelbooru(Booru):
         self.fringeBenefits = fringe_benefits
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data = {}  # Default to empty dict
+        COUNT = 0  # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
             res = requests.get(self.booru_url, cookies={'fringeBenefits': 'yup'} if self.fringeBenefits else None)
-            data = res.json(); COUNT = data.get('@attributes', {}).get('count', 0)
-            if COUNT <= max_pages*POST_AMOUNT:
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json:
+                        data = data_json
+                        COUNT = data.get('@attributes', {}).get('count', 0)
+                    else:
+                        print("API returned empty or null JSON response in get_data (Gelbooru).")
+                else:
+                    print("API response was empty or None in get_data (Gelbooru).")
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (Gelbooru): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                # data remains {} and COUNT remains 0
+
+            if COUNT <= max_pages*POST_AMOUNT: # COUNT here is the global COUNT updated in try/except
                 max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
@@ -104,163 +121,432 @@ class XBooru(Booru):
     def __init__(self): super().__init__('xbooru', f'https://xbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data = {} # Default to empty dict
+        COUNT = 0 # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://xbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url); data = res.json(); COUNT = 0
-            for post in data: post['file_url'] = f"https://xbooru.com/images/{post['directory']}/{post['image']}"; COUNT += 1
+            res = requests.get(self.booru_url)
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json:
+                        # XBooru specific: data is the list, COUNT is len(list)
+                        # It also modifies posts in place to add 'file_url'
+                        processed_posts = []
+                        for post in data_json: # data_json should be a list of posts
+                            if isinstance(post, dict):
+                                post['file_url'] = f"https://xbooru.com/images/{post.get('directory')}/{post.get('image')}"
+                                processed_posts.append(post)
+                        data = {'post': processed_posts} # Store posts under 'post' key like others
+                        COUNT = len(processed_posts)
+                    else:
+                        print("API returned empty or null JSON response in get_data (XBooru).")
+                        data = {'post': []} # Ensure data is a dict with 'post' key
+                else:
+                    print("API response was empty or None in get_data (XBooru).")
+                    data = {'post': []} # Ensure data is a dict with 'post' key
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (XBooru): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                data = {'post': []} # Ensure data is a dict with 'post' key on error
+                COUNT = 0
+
             if COUNT <= max_pages*POST_AMOUNT:
                 max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
             else: print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
             break
-        return {'post': data}
+        return data # data is now {'post': [...]} or {'post': []}
     def get_post(self, add_tags, max_pages=10, id=''): return self.get_data(add_tags, max_pages, "&id=" + id)
 
 class Rule34(Booru):
     def __init__(self): super().__init__('rule34', f'https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data = {} # Default to empty dict
+        COUNT = 0 # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url); data = res.json(); COUNT = len(data) if isinstance(data, list) else 0
+            res = requests.get(self.booru_url)
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json and isinstance(data_json, list): # Rule34 expects a list
+                        data = {'post': data_json}
+                        COUNT = len(data_json)
+                    elif data_json: # Not a list, but not empty
+                        print("API returned non-list JSON response when list was expected in get_data (Rule34).")
+                        data = {'post': []} # Ensure data is a dict with 'post' key
+                        COUNT = 0
+                    else:
+                        print("API returned empty or null JSON response in get_data (Rule34).")
+                        data = {'post': []} # Ensure data is a dict with 'post' key
+                        COUNT = 0
+                else:
+                    print("API response was empty or None in get_data (Rule34).")
+                    data = {'post': []} # Ensure data is a dict with 'post' key
+                    COUNT = 0
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (Rule34): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                data = {'post': []} # Ensure data is a dict with 'post' key
+                COUNT = 0
+
             if COUNT == 0:
                 max_pages = 2 # Default if no results
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
             else: print(f"Found enough results"); break
-        return {'post': data}
+        return data # data is now {'post': [...]} or {'post': []}
     def get_post(self, add_tags, max_pages=10, id=''): return self.get_data(add_tags, max_pages, "&id=" + id)
 
 class Safebooru(Booru):
     def __init__(self): super().__init__('safebooru', f'https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data = {} # Default to empty dict
+        COUNT = 0 # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url); data = res.json(); COUNT = 0
-            if isinstance(data, list): # Ensure data is a list before iterating
-                for post in data: post['file_url'] = f"https://safebooru.org/images/{post['directory']}/{post['image']}"; COUNT += 1
+            res = requests.get(self.booru_url)
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json and isinstance(data_json, list):
+                        processed_posts = []
+                        for post in data_json:
+                            if isinstance(post, dict):
+                                post['file_url'] = f"https://safebooru.org/images/{post.get('directory')}/{post.get('image')}"
+                                processed_posts.append(post)
+                        data = {'post': processed_posts}
+                        COUNT = len(processed_posts)
+                    elif data_json: # Not a list, but not empty
+                        print("API returned non-list JSON response when list was expected in get_data (Safebooru).")
+                        data = {'post': []}
+                        COUNT = 0
+                    else:
+                        print("API returned empty or null JSON response in get_data (Safebooru).")
+                        data = {'post': []}
+                        COUNT = 0
+                else:
+                    print("API response was empty or None in get_data (Safebooru).")
+                    data = {'post': []}
+                    COUNT = 0
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (Safebooru): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                data = {'post': []}
+                COUNT = 0
+
             if COUNT <= max_pages*POST_AMOUNT:
                 max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
             else: print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
             break
-        return {'post': data}
+        return data # data is now {'post': [...]} or {'post': []}
     def get_post(self, add_tags, max_pages=10, id=''): return self.get_data(add_tags, max_pages, "&id=" + id)
 
 class Konachan(Booru):
     def __init__(self): super().__init__('konachan', f'https://konachan.com/post.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data = {} # Default to empty dict
+        COUNT = 0 # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://konachan.com/post.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url); data = res.json(); COUNT = len(data) if isinstance(data, list) else 0
+            res = requests.get(self.booru_url)
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json and isinstance(data_json, list):
+                        data = {'post': data_json}
+                        COUNT = len(data_json)
+                    elif data_json: # Not a list, but not empty
+                        print("API returned non-list JSON response when list was expected in get_data (Konachan).")
+                        data = {'post': []}
+                        COUNT = 0
+                    else:
+                        print("API returned empty or null JSON response in get_data (Konachan).")
+                        data = {'post': []}
+                        COUNT = 0
+                else:
+                    print("API response was empty or None in get_data (Konachan).")
+                    data = {'post': []}
+                    COUNT = 0
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (Konachan): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                data = {'post': []}
+                COUNT = 0
+
             if COUNT == 0:
                 max_pages = 2
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
             else: print(f"Found enough results"); break
-        return {'post': data}
+        return data # data is now {'post': [...]} or {'post': []}
     def get_post(self, add_tags, max_pages=10, id=''): raise Exception("Konachan does not support post IDs")
 
 class Yandere(Booru):
     def __init__(self): super().__init__('yande.re', f'https://yande.re/post.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data = {} # Default to empty dict
+        COUNT = 0 # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://yande.re/post.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url); data = res.json(); COUNT = len(data) if isinstance(data, list) else 0
+            res = requests.get(self.booru_url)
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json and isinstance(data_json, list):
+                        data = {'post': data_json}
+                        COUNT = len(data_json)
+                    elif data_json: # Not a list, but not empty
+                        print("API returned non-list JSON response when list was expected in get_data (Yandere).")
+                        data = {'post': []}
+                        COUNT = 0
+                    else:
+                        print("API returned empty or null JSON response in get_data (Yandere).")
+                        data = {'post': []}
+                        COUNT = 0
+                else:
+                    print("API response was empty or None in get_data (Yandere).")
+                    data = {'post': []}
+                    COUNT = 0
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (Yandere): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                data = {'post': []}
+                COUNT = 0
+
             if COUNT == 0:
                 max_pages = 2
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
             else: print(f"Found enough results"); break
-        return {'post': data}
+        return data # data is now {'post': [...]} or {'post': []}
     def get_post(self, add_tags, max_pages=10, id=''): raise Exception("Yande.re does not support post IDs")
 
 class AIBooru(Booru):
     def __init__(self): super().__init__('AIBooru', f'https://aibooru.online/posts.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data = {} # Default to empty dict
+        COUNT = 0 # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://aibooru.online/posts.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url); data = res.json()
-            if isinstance(data, list): # Ensure data is a list
-                 for post in data: post['tags'] = post.get('tag_string', '') # Safe get
-                 COUNT = len(data)
-            else: COUNT = 0 # If data is not a list (e.g. error message)
-            if COUNT == 0:
+            res = requests.get(self.booru_url)
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json and isinstance(data_json, list):
+                        processed_posts = []
+                        for post in data_json:
+                            if isinstance(post, dict):
+                                post['tags'] = post.get('tag_string', '') # Safe get
+                                processed_posts.append(post)
+                        data = {'post': processed_posts}
+                        COUNT = len(processed_posts)
+                    elif data_json: # Not a list, but not empty
+                        print("API returned non-list JSON response when list was expected in get_data (AIBooru).")
+                        data = {'post': []}
+                        COUNT = 0
+                    else:
+                        print("API returned empty or null JSON response in get_data (AIBooru).")
+                        data = {'post': []}
+                        COUNT = 0
+                else:
+                    print("API response was empty or None in get_data (AIBooru).")
+                    data = {'post': []}
+                    COUNT = 0
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (AIBooru): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                data = {'post': []}
+                COUNT = 0
+
+            if COUNT == 0: # COUNT is updated in try/except
                 max_pages = 2
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
             else: print(f"Found enough results"); break
-        return {'post': data}
+        return data # data is now {'post': [...]} or {'post': []}
     def get_post(self, add_tags, max_pages=10, id=''): raise Exception("AIBooru does not support post IDs")
 
 class Danbooru(Booru):
     def __init__(self): super().__init__('danbooru', f'https://danbooru.donmai.us/posts.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data = {} # Default to empty dict
+        COUNT = 0 # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://danbooru.donmai.us/posts.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url, headers=self.headers); data = res.json()
-            if isinstance(data, list): # Ensure data is a list
-                for post in data: post['tags'] = post.get('tag_string', '') # Safe get
-                COUNT = len(data)
-            else: COUNT = 0
-            if COUNT == 0:
+            res = requests.get(self.booru_url, headers=self.headers)
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json and isinstance(data_json, list):
+                        processed_posts = []
+                        for post in data_json:
+                            if isinstance(post, dict):
+                                post['tags'] = post.get('tag_string', '') # Safe get
+                                processed_posts.append(post)
+                        data = {'post': processed_posts}
+                        COUNT = len(processed_posts)
+                    elif data_json: # Not a list, but not empty
+                        print("API returned non-list JSON response when list was expected in get_data (Danbooru).")
+                        data = {'post': []}
+                        COUNT = 0
+                    else:
+                        print("API returned empty or null JSON response in get_data (Danbooru).")
+                        data = {'post': []}
+                        COUNT = 0
+                else:
+                    print("API response was empty or None in get_data (Danbooru).")
+                    data = {'post': []}
+                    COUNT = 0
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (Danbooru): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                data = {'post': []}
+                COUNT = 0
+
+            if COUNT == 0: # COUNT is updated in try/except
                 max_pages = 2
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
             else: print(f"Found enough results"); break
-        return {'post': data}
+        return data # data is now {'post': [...]} or {'post': []}
     def get_post(self, add_tags, max_pages=10, id=''):
         self.booru_url = f"https://danbooru.donmai.us/posts/{id}.json"
-        res = requests.get(self.booru_url, headers=self.headers); data = res.json()
-        data['tags'] = data.get('tag_string', '') # Safe get
-        return {'post': [data]}
+        res = requests.get(self.booru_url, headers=self.headers)
+        data = {} # Default to empty dict
+        try:
+            if res and res.text:
+                data_json = res.json()
+                if data_json and isinstance(data_json, dict): # Expects a dict for a single post
+                    data_json['tags'] = data_json.get('tag_string', '') # Safe get
+                    # Wrap in a list to match the {'post': [data]} structure
+                    return {'post': [data_json]}
+                elif data_json: # Not a dict, but not empty
+                     print("API returned non-dict JSON response when dict was expected in get_post (Danbooru).")
+                     return {'post': []} # Return empty list in 'post' key
+                else:
+                    print("API returned empty or null JSON response in get_post (Danbooru).")
+                    return {'post': []} # Return empty list in 'post' key
+            else:
+                print("API response was empty or None in get_post (Danbooru).")
+                return {'post': []} # Return empty list in 'post' key
+        except requests.exceptions.JSONDecodeError as e:
+            print(f"Error decoding JSON from API in get_post (Danbooru): {e}")
+            if res and res.text:
+                print(f"Response text (first 500 chars): {res.text[:500]}")
+            return {'post': []} # Return empty list in 'post' key on error
 
 class e621(Booru):
     def __init__(self): super().__init__('e621', f'https://e621.net/posts.json?limit={POST_AMOUNT}')
     def get_data(self, add_tags, max_pages=10, id=''):
         global COUNT; loop_msg = True
+        data_list = [] # Use a different name for the list of posts to avoid conflict with returned 'data' dict
+        COUNT = 0 # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
             self.booru_url = f"https://e621.net/posts.json?limit={POST_AMOUNT}&page={random.randint(0, max_pages-1)}{id}{add_tags}"
-            res = requests.get(self.booru_url, headers=self.headers); data_res = res.json()
-            data = data_res.get('posts', [])
-            COUNT = len(data) if isinstance(data, list) else 0
-            for post in data:
-                temp_tags = []; sublevels = ['general', 'artist', 'copyright', 'character', 'species']
-                for sublevel in sublevels: temp_tags.extend(post.get('tags', {}).get(sublevel, []))
-                post['tags'] = ' '.join(temp_tags)
-                post['score'] = post.get('score', {}).get('total', 0)
-            if COUNT <= max_pages*POST_AMOUNT:
+            res = requests.get(self.booru_url, headers=self.headers)
+            data_list = [] # Reset data_list for each attempt
+            try:
+                if res and res.text:
+                    data_json = res.json()
+                    if data_json:
+                        posts_from_json = data_json.get('posts', [])
+                        if isinstance(posts_from_json, list):
+                            processed_posts = []
+                            for post_item in posts_from_json: # Renamed post to post_item
+                                if isinstance(post_item, dict):
+                                    temp_tags = []; sublevels = ['general', 'artist', 'copyright', 'character', 'species']
+                                    for sublevel in sublevels: temp_tags.extend(post_item.get('tags', {}).get(sublevel, []))
+                                    post_item['tags'] = ' '.join(temp_tags)
+                                    post_item['score'] = post_item.get('score', {}).get('total', 0)
+                                    processed_posts.append(post_item)
+                            data_list = processed_posts
+                            COUNT = len(data_list)
+                        else:
+                            print("API 'posts' field was not a list in get_data (e621).")
+                            COUNT = 0
+                    else:
+                        print("API returned empty or null JSON response in get_data (e621).")
+                        COUNT = 0
+                else:
+                    print("API response was empty or None in get_data (e621).")
+                    COUNT = 0
+            except requests.exceptions.JSONDecodeError as e:
+                print(f"Error decoding JSON from API in get_data (e621): {e}")
+                if res and res.text:
+                    print(f"Response text (first 500 chars): {res.text[:500]}")
+                data_list = [] # Ensure data_list is empty on error
+                COUNT = 0
+
+            # Loop control logic based on COUNT
+            if COUNT <= max_pages*POST_AMOUNT: # COUNT is updated in try/except
                 max_pages = (COUNT // POST_AMOUNT) + 1 if COUNT > 0 else 1
                 if loop_msg: print(f" Processing {COUNT} results."); loop_msg = False
                 continue
             else: print(f" Processing {max_pages*POST_AMOUNT} out of {COUNT} results.")
             break
-        return {'post': data}
+        return {'post': data_list} # Return in the expected format
+
     def get_post(self, add_tags, max_pages=10, id=''):
         self.booru_url = f"https://e621.net/posts/{id}.json"
-        res = requests.get(self.booru_url, headers=self.headers); data_res = res.json()
-        data = data_res.get('post', {})
-        if not data: return {'post': []}
-        temp_tags = []; sublevels = ['general', 'artist', 'copyright', 'character', 'species']
-        for sublevel in sublevels: temp_tags.extend(data.get('tags', {}).get(sublevel, []))
-        data['tags'] = ' '.join(temp_tags)
-        data['score'] = data.get('score', {}).get('total', 0)
-        return {'post': [data]}
+        res = requests.get(self.booru_url, headers=self.headers)
+        try:
+            if res and res.text:
+                data_json = res.json()
+                if data_json and isinstance(data_json, dict):
+                    post_data = data_json.get('post', {}) # Original logic: data = data_res.get('post', {})
+                    if not post_data:  # Check if post_data is empty
+                        print("API 'post' field was empty in get_post (e621).")
+                        return {'post': []} # Return empty list in 'post' key
+
+                    if isinstance(post_data, dict): # Ensure post_data is a dict
+                        temp_tags = []; sublevels = ['general', 'artist', 'copyright', 'character', 'species']
+                        for sublevel in sublevels: temp_tags.extend(post_data.get('tags', {}).get(sublevel, []))
+                        post_data['tags'] = ' '.join(temp_tags)
+                        post_data['score'] = post_data.get('score', {}).get('total', 0)
+                        return {'post': [post_data]} # Wrap in a list
+                    else:
+                        print("API 'post' field was not a dictionary in get_post (e621).")
+                        return {'post': []}
+                elif data_json: # Not a dict but not empty
+                    print("API returned non-dict JSON response when dict was expected in get_post (e621).")
+                    return {'post': []}
+                else:
+                    print("API returned empty or null JSON response in get_post (e621).")
+                    return {'post': []}
+            else:
+                print("API response was empty or None in get_post (e621).")
+                return {'post': []}
+        except requests.exceptions.JSONDecodeError as e:
+            print(f"Error decoding JSON from API in get_post (e621): {e}")
+            if res and res.text:
+                print(f"Response text (first 500 chars): {res.text[:500]}")
+            return {'post': []} # Return empty list in 'post' key on error
 
 def generate_chaos(pos_tags, neg_tags, chaos_amount):
     chaos_list = [tag for tag in pos_tags.split(',') + neg_tags.split(',') if tag.strip() != '']
