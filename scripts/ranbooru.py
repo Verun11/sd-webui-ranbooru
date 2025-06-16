@@ -17,6 +17,14 @@ from modules.sd_hijack import model_hijack
 from modules import deepbooru
 from modules.ui_components import InputAccordion
 
+# --- Ranbooru Configuration ---
+# Gelbooru API Key and User ID (Optional)
+# If you have a Gelbooru API key and User ID, you can add them here.
+# This may be required for certain Gelbooru features or for higher request limits.
+# Fill these with your actual credentials if you have them.
+GELBOORU_API_KEY = ""  # Example: "your_gelbooru_api_key_here"
+GELBOORU_USER_ID = ""  # Example: "your_gelbooru_user_id_here"
+
 extension_root = scripts.basedir()
 user_data_dir = os.path.join(extension_root, 'user')
 user_search_dir = os.path.join(user_data_dir, 'search')
@@ -90,7 +98,16 @@ class Gelbooru(Booru):
         COUNT = 0  # Default COUNT
         for _ in range(2):
             if id: add_tags = ''
-            self.booru_url = f"https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
+            # Construct base URL
+            base_url = f"https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&limit={POST_AMOUNT}&pid={random.randint(0, max_pages-1)}{id}{add_tags}"
+
+            # Add API key and User ID if they are set
+            auth_params = ""
+            if GELBOORU_API_KEY and GELBOORU_USER_ID:
+                auth_params = f"&api_key={GELBOORU_API_KEY}&user_id={GELBOORU_USER_ID}"
+
+            self.booru_url = base_url + auth_params
+
             res = requests.get(self.booru_url, cookies={'fringeBenefits': 'yup'} if self.fringeBenefits else None)
             try:
                 if res and res.text:
